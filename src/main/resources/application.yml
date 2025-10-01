@@ -1,0 +1,55 @@
+server:
+  servlet:
+    context-path: /api
+  port: 8081
+spring:
+  application:
+    name: meeting
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://<ip>:3306/meeting
+    username: root
+    password: <PASSWORD>
+  data:
+    redis:
+      database: 0
+      host: <ip>
+      port: 6379
+      password: <PASSWORD>
+  profiles:
+    active: prod
+
+# springdoc-openapi配置
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+  group-configs:
+    - group: 'default'
+      paths-to-match: '/**'
+      packages-to-scan: org.lzg.meeting.controller
+# knife4j增强配置
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+
+############## Sa-Token 配置 (文档: https://sa-token.cc) ##############
+sa-token:
+  # token 名称 (同时也是cookie名称)
+  token-name: satoken
+  # token 有效期(单位秒) 默认30天, -1代表永久
+  timeout: 2592000
+  # token 临时有效期(单位秒) 指定token在多少秒后自动刷新有效期，从而实现续期token的效果，默认-1代表不限制
+  active-timeout: -1
+  # 是否允许同一账号并发登录 (为true时允许一起登录, 为false时新登录挤掉旧登录)
+  is-concurrent: true
+  # 在多人登录同一账号时，是否共享token (为true时所有登录共用一个token, 为false时每次登录新建一个token)
+  is-share: false
+  # token 风格(默认可取值:uuid,simple-uuid,random-32,random-64,random-128,tik)
+  token-style: uuid
+  # 是否输出操作日志
+  is-log: true
