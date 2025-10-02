@@ -1,6 +1,11 @@
 package org.lzg.meeting.constant;
 
 public interface UserConstant {
+	String TOKEN = "token:";
+
+	/**
+	 * 盐值，混淆密码
+	 */
     String SALT = "meeting";
 
 	/**
