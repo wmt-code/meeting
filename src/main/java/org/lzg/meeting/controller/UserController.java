@@ -12,6 +12,7 @@ import org.lzg.meeting.exception.ThrowUtils;
 import org.lzg.meeting.model.dto.UserLoginDTO;
 import org.lzg.meeting.model.dto.UserRegisterDTO;
 import org.lzg.meeting.model.vo.CaptchaVO;
+import org.lzg.meeting.model.vo.UserVO;
 import org.lzg.meeting.service.IUserService;
 import org.lzg.meeting.utils.RedisUtil;
 import org.springframework.web.bind.annotation.*;
@@ -61,10 +62,10 @@ public class UserController {
      * @return 用户token
      */
     @PostMapping("/login")
-    public BaseResponse<String> login(@RequestBody UserLoginDTO userLoginDTO) {
+    public BaseResponse<UserVO> login(@RequestBody UserLoginDTO userLoginDTO) {
         ThrowUtils.throwIf(userLoginDTO == null, ErrorCode.PARAMS_ERROR);
-        String token = userService.login(userLoginDTO);
-        return ResultUtils.success(token);
+        UserVO userVO = userService.login(userLoginDTO);
+        return ResultUtils.success(userVO);
     }
     @PostMapping("/register")
     public BaseResponse<Boolean> register(@RequestBody UserRegisterDTO userRegisterDTO) {

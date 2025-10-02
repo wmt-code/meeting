@@ -1,10 +1,10 @@
 package org.lzg.meeting.service;
 
-import org.lzg.meeting.common.BaseResponse;
+import com.baomidou.mybatisplus.extension.service.IService;
 import org.lzg.meeting.model.dto.UserLoginDTO;
 import org.lzg.meeting.model.dto.UserRegisterDTO;
 import org.lzg.meeting.model.entity.User;
-import com.baomidou.mybatisplus.extension.service.IService;
+import org.lzg.meeting.model.vo.UserVO;
 
 /**
  * <p>
@@ -20,7 +20,7 @@ public interface IUserService extends IService<User> {
      * @param userLoginDTO 登录参数
      * @return 用户token
      */
-    String login(UserLoginDTO userLoginDTO);
+	UserVO login(UserLoginDTO userLoginDTO);
     /**
      * 注册
      * @param userRegisterDTO 注册参数

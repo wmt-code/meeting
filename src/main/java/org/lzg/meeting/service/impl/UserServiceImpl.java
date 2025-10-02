@@ -1,11 +1,13 @@
 package org.lzg.meeting.service.impl;
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.SecureUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import jakarta.annotation.Resource;
 import org.lzg.meeting.constant.UserConstant;
+import org.lzg.meeting.enums.UserStatusEnum;
 import org.lzg.meeting.exception.BusinessException;
 import org.lzg.meeting.exception.ErrorCode;
 import org.lzg.meeting.exception.ThrowUtils;
@@ -13,6 +15,7 @@ import org.lzg.meeting.mapper.UserMapper;
 import org.lzg.meeting.model.dto.UserLoginDTO;
 import org.lzg.meeting.model.dto.UserRegisterDTO;
 import org.lzg.meeting.model.entity.User;
+import org.lzg.meeting.model.vo.UserVO;
 import org.lzg.meeting.service.IUserService;
 import org.lzg.meeting.utils.JwtUtils;
 import org.lzg.meeting.utils.RedisUtil;
@@ -36,7 +39,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 	private RedisUtil redisUtil;
 
 	@Override
-	public String login(UserLoginDTO userLoginDTO) {
+	public UserVO login(UserLoginDTO userLoginDTO) {
 		String userAccount = userLoginDTO.getUserAccount();
 		String userPassword = userLoginDTO.getUserPassword();
 		String captchaKey = userLoginDTO.getCaptchaKey();
@@ -52,6 +55,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 		if (user == null) {
 			throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户不存在");
 		}
+		// 判断用户是否被禁用
+		if (user.getStatus().equals(UserStatusEnum.DISABLE.getValue())) {
+			throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户已被禁用");
+		}
 		// 密码校验
 		if (!encPassword(userPassword).equals(user.getUserPassword())) {
 			throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码错误");
@@ -61,7 +68,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 		map.put("userId", user.getId());
 		String token = JwtUtils.generateToken(user.getId().toString(), map);
 		redisUtil.setEx(UserConstant.TOKEN + user.getId(), token, JwtUtils.EXPIRE_TIME / 1000, TimeUnit.SECONDS);
-		return token;
+		UserVO userVO = new UserVO();
+		BeanUtil.copyProperties(user, userVO);
+		userVO.setToken(token);
+		return userVO;
 	}
 
 	@Override
