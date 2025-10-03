@@ -4,7 +4,6 @@ import lombok.Data;
 
 import java.io.Serial;
 import java.io.Serializable;
-import java.time.LocalDateTime;
 
 @Data
 public class UserVO implements Serializable {
@@ -49,19 +48,8 @@ public class UserVO implements Serializable {
 	 * 用户角色
 	 */
 	private String role;
-
 	/**
-	 * 创建时间
+	 * 个人会议ID
 	 */
-	private LocalDateTime createTime;
-
-	/**
-	 * 编辑时间
-	 */
-	private LocalDateTime editTime;
-
-	/**
-	 * 更新时间
-	 */
-	private LocalDateTime updateTime;
+	private Long meetingId;
 }

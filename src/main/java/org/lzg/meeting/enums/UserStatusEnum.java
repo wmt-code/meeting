@@ -2,6 +2,9 @@ package org.lzg.meeting.enums;
 
 import lombok.Getter;
 
+/**
+ * 用户状态枚举
+ */
 @Getter
 public enum UserStatusEnum {
 	DISABLE(0, "禁用"),
