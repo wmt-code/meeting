@@ -47,7 +47,7 @@ public class UserVO implements Serializable {
 	/**
 	 * 用户角色
 	 */
-	private String role;
+	private String userRole;
 	/**
 	 * 个人会议ID
 	 */

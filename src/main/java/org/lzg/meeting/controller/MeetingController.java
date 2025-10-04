@@ -1,8 +1,9 @@
 package org.lzg.meeting.controller;
 
 
+import org.lzg.meeting.annotation.GlobalInterceptor;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -16,5 +17,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/meeting")
 public class MeetingController {
+	@GetMapping("/hello")
+	@GlobalInterceptor(checkAdmin = true)
+	public String hello() {
+		return "hello";
+	}
 
 }

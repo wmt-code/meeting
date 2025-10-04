@@ -73,8 +73,8 @@ public class User implements Serializable {
 	/**
 	 * 用户角色
 	 */
-	@TableField("role")
-	private String role;
+	@TableField("userRole")
+	private String userRole;
 
 	/**
 	 * 会议号
@@ -98,18 +98,6 @@ public class User implements Serializable {
 	 */
 	@TableField("updateTime")
 	private LocalDateTime updateTime;
-
-	/**
-	 * 最后登录时间
-	 */
-	@TableField("lastLoginTime")
-	private LocalDateTime lastLoginTime;
-
-	/**
-	 * 最后登出时间
-	 */
-	@TableField("lastLogoutTime")
-	private LocalDateTime lastLogoutTime;
 
 	/**
 	 * 是否删除 1已删除 0 未删除

@@ -21,7 +21,6 @@ import org.lzg.meeting.utils.JwtUtils;
 import org.lzg.meeting.utils.RedisUtil;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -60,22 +59,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 		if (user.getStatus().equals(UserStatusEnum.DISABLE.getValue())) {
 			throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户已被禁用");
 		}
-		// 判断用户是否重复登录
-		if (user.getLastLoginTime().isAfter(user.getLastLogoutTime())) {
-			throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户已登录，请勿重复登录");
-		}
 		// 密码校验
 		if (!encPassword(userPassword).equals(user.getUserPassword())) {
 			throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码错误");
 		}
-		// 更新最后登录时间
-		user.setLastLoginTime(LocalDateTime.now());
 		// 生成token
 		Map<String, Object> map = new HashMap<>();
 		map.put("userId", user.getId());
 		if (user.getMeetingNo() != null) {
 			map.put("meetingNo", user.getMeetingNo());
 		}
+		map.put("userRole", user.getUserRole());
 		String token = JwtUtils.generateToken(user.getId().toString(), map);
 		redisUtil.setEx(UserConstant.TOKEN + user.getId(), token, JwtUtils.EXPIRE_TIME / 1000, TimeUnit.SECONDS);
 		UserVO userVO = new UserVO();
@@ -105,7 +99,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 		user.setUserAccount(userAccount);
 		user.setUserPassword(encPassword(userPassword));
 		user.setUserName(userAccount);
-		user.setRole(UserConstant.DEFAULT_ROLE);
+		user.setUserRole(UserConstant.DEFAULT_ROLE);
 		boolean save = this.save(user);
 		ThrowUtils.throwIf(!save, ErrorCode.OPERATION_ERROR);
 		return true;
@@ -126,8 +120,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 	}
 
 	private void checkCaptcha(String captchaKey, String captchaCode) {
+		String code = redisUtil.get(captchaKey);
+		// 验证码不存在或已过期
+		if (code == null) {
+			throw new BusinessException(ErrorCode.PARAMS_ERROR, "验证码已过期");
+		}
 		// 验证码校验
-		if (!redisUtil.get(captchaKey).equals(captchaCode)) {
+		if (!code.equals(captchaCode)){
 			throw new BusinessException(ErrorCode.PARAMS_ERROR, "验证码错误");
 		}
 	}
