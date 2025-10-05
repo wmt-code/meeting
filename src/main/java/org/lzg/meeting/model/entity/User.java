@@ -80,7 +80,7 @@ public class User implements Serializable {
 	 * 会议号
 	 */
 	@TableField("meetingNo")
-	private Long meetingNo;
+	private Integer meetingNo;
 	/**
 	 * 创建时间
 	 */

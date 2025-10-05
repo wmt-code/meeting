@@ -1,6 +1,7 @@
 package org.lzg.meeting.constant;
 
 public interface UserConstant {
+	String USER_ID = "userId";
 
 	String TOKEN = "token:";
 
@@ -25,6 +26,7 @@ public interface UserConstant {
 	 * 管理员角色
 	 */
 	String ADMIN_ROLE = "admin";
+	long TOKEN_EXPIRE_TIME = 1;
 
 
 	// endregion

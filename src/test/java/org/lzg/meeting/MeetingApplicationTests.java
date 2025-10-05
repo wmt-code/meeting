@@ -1,13 +1,18 @@
 package org.lzg.meeting;
 
-import org.lzg.meeting.utils.JwtUtils;
+import jakarta.annotation.Resource;
+import org.junit.jupiter.api.Test;
+import org.lzg.meeting.constant.UserConstant;
+import org.lzg.meeting.utils.RedisUtil;
+import org.springframework.boot.test.context.SpringBootTest;
 
-import java.util.Map;
-
+@SpringBootTest
 class MeetingApplicationTests {
-	public static void main(String[] args) {
-		Map<String, Object> parsedToken = JwtUtils.parseToken("eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9" +
-				".eyJzdWIiOiIxOTcyODk3NTQxNzk0NjU2MjU4IiwiZXhwIjoxNzYwMTc0MjYwLCJ1c2VyUm9sZSI6InVzZXIiLCJpYXQiOjE3NTk1Njk0NjAsInVzZXJJZCI6MTk3Mjg5NzU0MTc5NDY1NjI1OCwianRpIjoiMjg3Yjk3OWRjYjFiNDY3OTg4MTZmZDI5NmQ2Mzc0N2UifQ.vwtwUIc7gEq1oAFyGS3dmwrnn3Gwp_xIsBQ-IxroxT8");
-		System.out.println(parsedToken);
+	@Resource
+	private RedisUtil redisUtil;
+	@Test
+	void contextLoads() {
+		Long expire = redisUtil.getExpire(UserConstant.TOKEN + "b83dc70c115b13a0f8158c998e9a7bd8");
+		System.out.println(expire);
 	}
 }

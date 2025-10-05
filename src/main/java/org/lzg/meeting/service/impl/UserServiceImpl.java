@@ -3,6 +3,7 @@ package org.lzg.meeting.service.impl;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.SecureUtil;
+import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import jakarta.annotation.Resource;
@@ -12,17 +13,15 @@ import org.lzg.meeting.exception.BusinessException;
 import org.lzg.meeting.exception.ErrorCode;
 import org.lzg.meeting.exception.ThrowUtils;
 import org.lzg.meeting.mapper.UserMapper;
+import org.lzg.meeting.model.dto.TokenUserInfo;
 import org.lzg.meeting.model.dto.UserLoginDTO;
 import org.lzg.meeting.model.dto.UserRegisterDTO;
 import org.lzg.meeting.model.entity.User;
 import org.lzg.meeting.model.vo.UserVO;
 import org.lzg.meeting.service.IUserService;
-import org.lzg.meeting.utils.JwtUtils;
 import org.lzg.meeting.utils.RedisUtil;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -64,14 +63,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 			throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码错误");
 		}
 		// 生成token
-		Map<String, Object> map = new HashMap<>();
-		map.put("userId", user.getId());
-		if (user.getMeetingNo() != null) {
-			map.put("meetingNo", user.getMeetingNo());
-		}
-		map.put("userRole", user.getUserRole());
-		String token = JwtUtils.generateToken(user.getId().toString(), map);
-		redisUtil.setEx(UserConstant.TOKEN + user.getId(), token, JwtUtils.EXPIRE_TIME / 1000, TimeUnit.SECONDS);
+		String token = SecureUtil.md5("" + user.getId() + System.currentTimeMillis());
+		TokenUserInfo tokenUserInfo = new TokenUserInfo();
+		tokenUserInfo.setMeetingNo(user.getMeetingNo());
+		tokenUserInfo.setUserRole(user.getUserRole());
+		tokenUserInfo.setUserId(user.getId());
+		tokenUserInfo.setUserName(user.getUserName());
+		// redis存入 用户ID对应的token
+		redisUtil.setEx(UserConstant.TOKEN + user.getId(), token, UserConstant.TOKEN_EXPIRE_TIME, TimeUnit.DAYS);
+		// redis存入 token对应的用户信息
+		redisUtil.setEx(UserConstant.TOKEN + token, JSONUtil.toJsonStr(tokenUserInfo), UserConstant.TOKEN_EXPIRE_TIME,
+				TimeUnit.DAYS);
 		UserVO userVO = new UserVO();
 		BeanUtil.copyProperties(user, userVO);
 		userVO.setToken(token);
@@ -126,7 +128,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 			throw new BusinessException(ErrorCode.PARAMS_ERROR, "验证码已过期");
 		}
 		// 验证码校验
-		if (!code.equals(captchaCode)){
+		if (!code.equals(captchaCode)) {
 			throw new BusinessException(ErrorCode.PARAMS_ERROR, "验证码错误");
 		}
 	}

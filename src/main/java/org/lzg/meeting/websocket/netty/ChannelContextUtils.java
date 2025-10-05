@@ -13,7 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.lzg.meeting.constant.UserConstant;
 import org.lzg.meeting.enums.MsgSendTypeEnum;
 import org.lzg.meeting.model.dto.SendMsgDTO;
-import org.lzg.meeting.utils.JwtUtils;
+import org.lzg.meeting.model.dto.TokenUserInfo;
 import org.lzg.meeting.utils.RedisUtil;
 import org.springframework.stereotype.Component;
 
@@ -50,11 +50,15 @@ public class ChannelContextUtils {
 		USER_CHANNEL_MAP.put(userId, channel);
 		// 获取token
 		String token = redisUtil.get(UserConstant.TOKEN + userId);
-		Map<String, Object> parsedToken = JwtUtils.parseToken(token);
-		if (token == null || parsedToken == null) {
+		if (token == null) {
 			return;
 		}
-		Integer meetingNo = (Integer) parsedToken.get("meetingNo");
+		String redisToken = redisUtil.get(UserConstant.TOKEN + token);
+		if (StrUtil.isBlank(redisToken)) {
+			return;
+		}
+		TokenUserInfo tokenUserInfo = JSONUtil.toBean(redisToken, TokenUserInfo.class);
+		Integer meetingNo = tokenUserInfo.getMeetingNo();
 		if (meetingNo == null) {
 			return;
 		}

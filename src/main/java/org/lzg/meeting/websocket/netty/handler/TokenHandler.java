@@ -1,5 +1,6 @@
 package org.lzg.meeting.websocket.netty.handler;
 
+import cn.hutool.json.JSONUtil;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandler;
@@ -9,11 +10,11 @@ import io.netty.handler.codec.http.*;
 import io.netty.util.CharsetUtil;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
-import org.lzg.meeting.utils.JwtUtils;
+import org.lzg.meeting.constant.UserConstant;
+import org.lzg.meeting.model.dto.TokenUserInfo;
+import org.lzg.meeting.utils.RedisUtil;
 import org.lzg.meeting.websocket.netty.ChannelContextUtils;
 import org.springframework.stereotype.Component;
-
-import java.util.Map;
 
 /**
  * token 校验
@@ -22,6 +23,8 @@ import java.util.Map;
 @Component
 @ChannelHandler.Sharable
 public class TokenHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
+	@Resource
+	private RedisUtil redisUtil;
 	@Resource
 	private ChannelContextUtils channelContextUtils;
 
@@ -37,13 +40,14 @@ public class TokenHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
 		}
 		// 校验 token
 		String token = qsd.parameters().get("token").getFirst();
-		Map<String, Object> parsedToken = JwtUtils.parseToken(token);
-		if (parsedToken == null) {
+		String redisToken = redisUtil.get(UserConstant.TOKEN + token);
+		if (redisToken == null) {
 			log.error("token 校验失败：{}", token);
 			sendErrorResponse(channelHandlerContext);
 			return;
 		}
-		Long userId = (Long) parsedToken.get("userId");
+		TokenUserInfo tokenUserInfo = JSONUtil.toBean(redisToken, TokenUserInfo.class);
+		Long userId = tokenUserInfo.getUserId();
 		// 继续处理下一个handler
 		channelHandlerContext.fireChannelRead(fullHttpRequest.retain());
 		// 将 userId 和 channel 关联起来

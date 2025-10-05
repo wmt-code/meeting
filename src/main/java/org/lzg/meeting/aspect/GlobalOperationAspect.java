@@ -1,5 +1,7 @@
 package org.lzg.meeting.aspect;
 
+import cn.hutool.json.JSONUtil;
+import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.JoinPoint;
@@ -7,21 +9,24 @@ import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.lzg.meeting.annotation.GlobalInterceptor;
+import org.lzg.meeting.constant.UserConstant;
 import org.lzg.meeting.exception.BusinessException;
 import org.lzg.meeting.exception.ErrorCode;
-import org.lzg.meeting.utils.JwtUtils;
+import org.lzg.meeting.model.dto.TokenUserInfo;
+import org.lzg.meeting.utils.RedisUtil;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.lang.reflect.Method;
-import java.util.Map;
 import java.util.Objects;
 
 @Component
 @Aspect
 @Slf4j
 public class GlobalOperationAspect {
+	@Resource
+	private RedisUtil redisUtil;
 
 	@Before("@annotation(org.lzg.meeting.annotation.GlobalInterceptor)")
 	public void doInterceptor(JoinPoint joinPoint) {
@@ -42,12 +47,13 @@ public class GlobalOperationAspect {
 		if (token == null || token.isEmpty()) {
 			throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR, "用户未登录,请先登录");
 		}
-		Map<String, Object> parsedToken = JwtUtils.parseToken(token);
-		if (parsedToken == null) {
+		String redisToken = redisUtil.get(UserConstant.TOKEN + token);
+		if (redisToken == null) {
 			throw new BusinessException(ErrorCode.PARAMS_ERROR, "token无效,请重新登录");
 		}
+		TokenUserInfo tokenUserInfo = JSONUtil.toBean(redisToken, TokenUserInfo.class);
 		if (checkAdmin) {
-			String userRole = (String) parsedToken.get("userRole");
+			String userRole = tokenUserInfo.getUserRole();
 			if (!"admin".equals(userRole)) {
 				throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权限操作");
 			}

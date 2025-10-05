@@ -57,17 +57,17 @@ public class MeetingMember implements Serializable {
     /**
      * 成员状态 被踢出、拉入黑名单
      */
-    private Boolean status;
+    private Integer status;
 
     /**
      * 成员类型 主持人、普通成员
      */
-    private Boolean memberType;
+    private Integer memberType;
 
     /**
-     * 会议状态 进行中、已关闭
+     * 会议状态 进行中、已结束
      */
-    private Boolean meetingStatus;
+    private Integer meetingStatus;
 
 
 }

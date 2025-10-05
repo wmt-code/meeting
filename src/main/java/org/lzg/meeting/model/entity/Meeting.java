@@ -54,7 +54,7 @@ public class Meeting implements Serializable {
 	/**
 	 * 加入会议的类型，例如直接加入或者要密码加入
 	 */
-	private Boolean joinType;
+	private Integer joinType;
 
 	/**
 	 * 加入密码
@@ -74,7 +74,7 @@ public class Meeting implements Serializable {
 	/**
 	 * 会议状态 进行中 或 已结束
 	 */
-	private Boolean status;
+	private Integer status;
 
 
 }

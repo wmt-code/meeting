@@ -49,7 +49,7 @@ public class UserVO implements Serializable {
 	 */
 	private String userRole;
 	/**
-	 * 个人会议ID
+	 * 个人会议号
 	 */
-	private Long meetingId;
+	private Integer meetingNo;
 }
