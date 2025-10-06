@@ -1,6 +1,5 @@
 package org.lzg.meeting.websocket.netty.handler;
 
-import cn.hutool.json.JSONUtil;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandler;
@@ -10,9 +9,8 @@ import io.netty.handler.codec.http.*;
 import io.netty.util.CharsetUtil;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
-import org.lzg.meeting.constant.UserConstant;
+import org.lzg.meeting.component.RedisComponent;
 import org.lzg.meeting.model.dto.TokenUserInfo;
-import org.lzg.meeting.utils.RedisUtil;
 import org.lzg.meeting.websocket.netty.ChannelContextUtils;
 import org.springframework.stereotype.Component;
 
@@ -24,7 +22,7 @@ import org.springframework.stereotype.Component;
 @ChannelHandler.Sharable
 public class TokenHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
 	@Resource
-	private RedisUtil redisUtil;
+	private RedisComponent redisComponent;
 	@Resource
 	private ChannelContextUtils channelContextUtils;
 
@@ -40,13 +38,12 @@ public class TokenHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
 		}
 		// 校验 token
 		String token = qsd.parameters().get("token").getFirst();
-		String redisToken = redisUtil.get(UserConstant.TOKEN + token);
-		if (redisToken == null) {
-			log.error("token 校验失败：{}", token);
+		TokenUserInfo tokenUserInfo = redisComponent.getTokenUserInfo(token);
+		if (tokenUserInfo == null) {
 			sendErrorResponse(channelHandlerContext);
 			return;
 		}
-		TokenUserInfo tokenUserInfo = JSONUtil.toBean(redisToken, TokenUserInfo.class);
+		// 获取用户ID
 		Long userId = tokenUserInfo.getUserId();
 		// 继续处理下一个handler
 		channelHandlerContext.fireChannelRead(fullHttpRequest.retain());

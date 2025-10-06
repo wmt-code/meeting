@@ -1,12 +1,14 @@
 package org.lzg.meeting.service.impl;
 
+import cn.hutool.captcha.CaptchaUtil;
+import cn.hutool.captcha.LineCaptcha;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.SecureUtil;
-import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import jakarta.annotation.Resource;
+import org.lzg.meeting.component.RedisComponent;
 import org.lzg.meeting.constant.UserConstant;
 import org.lzg.meeting.enums.UserStatusEnum;
 import org.lzg.meeting.exception.BusinessException;
@@ -17,12 +19,10 @@ import org.lzg.meeting.model.dto.TokenUserInfo;
 import org.lzg.meeting.model.dto.UserLoginDTO;
 import org.lzg.meeting.model.dto.UserRegisterDTO;
 import org.lzg.meeting.model.entity.User;
+import org.lzg.meeting.model.vo.CaptchaVO;
 import org.lzg.meeting.model.vo.UserVO;
 import org.lzg.meeting.service.IUserService;
-import org.lzg.meeting.utils.RedisUtil;
 import org.springframework.stereotype.Service;
-
-import java.util.concurrent.TimeUnit;
 
 /**
  * <p>
@@ -35,7 +35,7 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IUserService {
 	@Resource
-	private RedisUtil redisUtil;
+	private RedisComponent redisComponent;
 
 	@Override
 	public UserVO login(UserLoginDTO userLoginDTO) {
@@ -68,12 +68,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 		tokenUserInfo.setMeetingNo(user.getMeetingNo());
 		tokenUserInfo.setUserRole(user.getUserRole());
 		tokenUserInfo.setUserId(user.getId());
-		tokenUserInfo.setUserName(user.getUserName());
 		// redis存入 用户ID对应的token
-		redisUtil.setEx(UserConstant.TOKEN + user.getId(), token, UserConstant.TOKEN_EXPIRE_TIME, TimeUnit.DAYS);
+		redisComponent.saveToken(user.getId(), token);
 		// redis存入 token对应的用户信息
-		redisUtil.setEx(UserConstant.TOKEN + token, JSONUtil.toJsonStr(tokenUserInfo), UserConstant.TOKEN_EXPIRE_TIME,
-				TimeUnit.DAYS);
+		redisComponent.saveTokenUserInfo(token, tokenUserInfo);
 		UserVO userVO = new UserVO();
 		BeanUtil.copyProperties(user, userVO);
 		userVO.setToken(token);
@@ -107,6 +105,22 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 		return true;
 	}
 
+	@Override
+	public CaptchaVO getCaptcha() {
+		// 定义图形验证码的长和宽
+		LineCaptcha lineCaptcha = CaptchaUtil.createLineCaptcha(128, 64);
+
+		String captchaKey = "captcha:" + System.currentTimeMillis() + ":" + java.util.UUID.randomUUID();
+		String code = lineCaptcha.getCode();
+		String imageBase64 = lineCaptcha.getImageBase64();
+		// 设置60s超时时间
+		redisComponent.saveCaptcha(captchaKey, code);
+		CaptchaVO captchaVO = new CaptchaVO();
+		captchaVO.setCaptchaKey(captchaKey);
+		captchaVO.setCaptchaBase64(imageBase64);
+		return captchaVO;
+	}
+
 	private static void checkAccAndPwd(String userAccount, String userPassword) {
 		// 账号密码校验
 		if (userAccount.length() < 4 || userAccount.length() > 20) {
@@ -122,7 +136,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 	}
 
 	private void checkCaptcha(String captchaKey, String captchaCode) {
-		String code = redisUtil.get(captchaKey);
+		String code = redisComponent.get(captchaKey);
 		// 验证码不存在或已过期
 		if (code == null) {
 			throw new BusinessException(ErrorCode.PARAMS_ERROR, "验证码已过期");

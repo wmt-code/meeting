@@ -45,7 +45,7 @@ public class MeetingMember implements Serializable {
     private Long userId;
 
     /**
-     * 昵称
+	 * 用户昵称
      */
     private String nickName;
 

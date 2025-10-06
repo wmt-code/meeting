@@ -7,7 +7,7 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 @Data
-public class SendMsgDTO<T> implements Serializable {
+public class SendMsgDTO implements Serializable {
 	@Serial
 	private static final long serialVersionUID = 1L;
 	/**
@@ -20,7 +20,7 @@ public class SendMsgDTO<T> implements Serializable {
 	private Integer msgType; // 消息类型，例如文本消息、文件消息等。
 	private Long senderId; // 发送者的用户ID，用于标识消息的发送者。
 	private String senderName; // 发送者的用户名。
-	private T msgContent; // 消息的具体内容，支持泛型以适应不同类型的消息。
+	private Object msgContent; // 消息的具体内容，支持泛型以适应不同类型的消息。
 	private Long receiverId; // 接收者的用户ID，用于指定消息的目标用户。
 	private LocalDateTime sendTime; // 消息的发送时间，记录消息的时间戳。
 	private Long msgId; // 消息的唯一标识符，用于区分不同的消息。

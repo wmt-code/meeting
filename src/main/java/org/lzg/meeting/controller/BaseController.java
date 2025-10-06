@@ -1,22 +1,20 @@
 package org.lzg.meeting.controller;
 
-import cn.hutool.json.JSONUtil;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import org.lzg.meeting.component.RedisComponent;
 import org.lzg.meeting.constant.UserConstant;
 import org.lzg.meeting.exception.BusinessException;
 import org.lzg.meeting.exception.ErrorCode;
 import org.lzg.meeting.model.dto.TokenUserInfo;
-import org.lzg.meeting.utils.RedisUtil;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.util.Objects;
-import java.util.concurrent.TimeUnit;
 
 public class BaseController {
 	@Resource
-	private RedisUtil redisUtil;
+	private RedisComponent redisComponent;
 
 	protected TokenUserInfo getTokenUserInfo() {
 		HttpServletRequest request =
@@ -26,20 +24,15 @@ public class BaseController {
 			throw new BusinessException(ErrorCode.PARAMS_ERROR,
 					"token不存在,请重新登录");
 		}
-		String redisToken = redisUtil.get(UserConstant.TOKEN + token);
-		if (Objects.isNull(redisToken)) {
-			throw new BusinessException(ErrorCode.PARAMS_ERROR,
-					"token无效,请重新登录");
-		}
-		return JSONUtil.toBean(redisToken, TokenUserInfo.class);
+		return redisComponent.getTokenUserInfo(token);
 	}
 
-	protected void resetToken(TokenUserInfo tokenUserInfo) {
+	protected void resetTokenUserInfo(TokenUserInfo tokenUserInfo) {
 		HttpServletRequest request =
 				((ServletRequestAttributes) Objects.requireNonNull(RequestContextHolder.getRequestAttributes())).getRequest();
 		String token = request.getHeader("token");
-		Long expire = redisUtil.getExpire(UserConstant.TOKEN + token);
-		redisUtil.setEx(UserConstant.TOKEN + token, JSONUtil.toJsonStr(tokenUserInfo), expire, TimeUnit.SECONDS);
+		Long expire = redisComponent.getExpire(UserConstant.TOKEN + token);
+		redisComponent.saveTokenEX(token, tokenUserInfo, expire);
 	}
 
 }

@@ -12,5 +12,5 @@ import com.baomidou.mybatisplus.extension.service.IService;
  * @since 2025-10-03
  */
 public interface IMeetingMemberService extends IService<MeetingMember> {
-
+	void addMeetingMember(Long meetingId, Long userId, String userName, Integer memberType);
 }

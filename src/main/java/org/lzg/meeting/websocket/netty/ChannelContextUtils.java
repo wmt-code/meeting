@@ -10,11 +10,10 @@ import io.netty.util.AttributeKey;
 import io.netty.util.concurrent.GlobalEventExecutor;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
-import org.lzg.meeting.constant.UserConstant;
+import org.lzg.meeting.component.RedisComponent;
 import org.lzg.meeting.enums.MsgSendTypeEnum;
 import org.lzg.meeting.model.dto.SendMsgDTO;
 import org.lzg.meeting.model.dto.TokenUserInfo;
-import org.lzg.meeting.utils.RedisUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -30,9 +29,9 @@ public class ChannelContextUtils {
 	/**
 	 * 会议号和ChannelGroup的映射
 	 */
-	private static final Map<Integer, ChannelGroup> MEETING_CHANNEL_GROUP_MAP = new ConcurrentHashMap<>();
+	private static final Map<Long, ChannelGroup> MEETING_CHANNEL_GROUP_MAP = new ConcurrentHashMap<>();
 	@Resource
-	private RedisUtil redisUtil;
+	private RedisComponent redisComponent;
 
 	public void addUserChannel(Long userId, Channel channel) {
 		String channelId = channel.id().toString();
@@ -49,41 +48,39 @@ public class ChannelContextUtils {
 		// 将用户ID和Channel存入映射
 		USER_CHANNEL_MAP.put(userId, channel);
 		// 获取token
-		String token = redisUtil.get(UserConstant.TOKEN + userId);
-		if (token == null) {
+		String token = redisComponent.getToken(userId);
+		if (StrUtil.isEmpty(token)) {
+			log.warn("用户{}的token不存在，无法加入会议室", userId);
 			return;
 		}
-		String redisToken = redisUtil.get(UserConstant.TOKEN + token);
-		if (StrUtil.isBlank(redisToken)) {
-			return;
-		}
-		TokenUserInfo tokenUserInfo = JSONUtil.toBean(redisToken, TokenUserInfo.class);
-		Integer meetingNo = tokenUserInfo.getMeetingNo();
-		if (meetingNo == null) {
+		// 获取用户信息
+		TokenUserInfo tokenUserInfo = redisComponent.getTokenUserInfo(token);
+		Long meetingId = tokenUserInfo.getMeetingId();
+		if (meetingId == null) {
 			return;
 		}
 		// 将用户加入对应的会议室
-		addMeetingRoom(meetingNo, userId);
+		addMeetingRoom(meetingId, userId);
 	}
 
-	public void addMeetingRoom(Integer meetingNo, Long userId) {
+	public void addMeetingRoom(Long meetingId, Long userId) {
 		// 获取用户的Channel
 		Channel channel = USER_CHANNEL_MAP.get(userId);
 		if (channel == null) {
-			log.warn("用户{}的Channel不存在，无法加入会议室{}", userId, meetingNo);
+			log.warn("用户{}的Channel不存在，无法加入会议室{}", userId, meetingId);
 			return;
 		}
-		ChannelGroup channelGroup = MEETING_CHANNEL_GROUP_MAP.get(meetingNo);
+		ChannelGroup channelGroup = MEETING_CHANNEL_GROUP_MAP.get(meetingId);
 		if (channelGroup == null) {
 			channelGroup = new DefaultChannelGroup(GlobalEventExecutor.INSTANCE);
-			MEETING_CHANNEL_GROUP_MAP.put(meetingNo, channelGroup);
+			MEETING_CHANNEL_GROUP_MAP.put(meetingId, channelGroup);
 		}
 		Channel ch = channelGroup.find(channel.id());
 		if (ch == null) {
 			channelGroup.add(channel);
-			log.info("用户{}加入会议室{}", userId, meetingNo);
+			log.info("用户{}加入会议室{}", userId, meetingId);
 		} else {
-			log.info("用户{}已经在会议室{}中", userId, meetingNo);
+			log.info("用户{}已经在会议室{}中", userId, meetingId);
 		}
 	}
 

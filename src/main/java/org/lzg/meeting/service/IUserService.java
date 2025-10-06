@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import org.lzg.meeting.model.dto.UserLoginDTO;
 import org.lzg.meeting.model.dto.UserRegisterDTO;
 import org.lzg.meeting.model.entity.User;
+import org.lzg.meeting.model.vo.CaptchaVO;
 import org.lzg.meeting.model.vo.UserVO;
 
 /**
@@ -27,4 +28,7 @@ public interface IUserService extends IService<User> {
      * @return 是否注册成功
      */
     Boolean register(UserRegisterDTO userRegisterDTO);
+
+	CaptchaVO getCaptcha();
+
 }
