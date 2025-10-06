@@ -1,18 +1,23 @@
 package org.lzg.meeting;
 
-import jakarta.annotation.Resource;
+import cn.hutool.setting.yaml.YamlUtil;
 import org.junit.jupiter.api.Test;
-import org.lzg.meeting.constant.UserConstant;
-import org.lzg.meeting.utils.RedisUtil;
 import org.springframework.boot.test.context.SpringBootTest;
+
+import java.util.Map;
 
 @SpringBootTest
 class MeetingApplicationTests {
-	@Resource
-	private RedisUtil redisUtil;
 	@Test
 	void contextLoads() {
-		Long expire = redisUtil.getExpire(UserConstant.TOKEN + "b83dc70c115b13a0f8158c998e9a7bd8");
-		System.out.println(expire);
+		// 从 resources 目录读取 application.yml
+		Map<String, Object> yamlMap = YamlUtil.loadByPath("application.yml");
+
+		// 访问层级配置
+		Map<String, Object> message = (Map<String, Object>) yamlMap.get("message");
+		Map<String, Object> handle = (Map<String, Object>) message.get("handle");
+		String channel = (String) handle.get("channel");
+
+		System.out.println("channel = " + channel); // 输出 redis
 	}
 }

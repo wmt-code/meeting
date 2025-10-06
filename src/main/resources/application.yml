@@ -3,6 +3,17 @@ server:
         context-path: /api
     port: 8081
 spring:
+    rabbitmq:
+        addresses: <ip>
+        port: 5672
+        username: <USERNAME>
+        password: <PASSWORD>
+        virtual-host: /
+        publisher-confirm-type: correlated
+        publisher-returns: true
+        listener:
+            simple:
+                acknowledge-mode: manual
     application:
         name: meeting
     datasource:

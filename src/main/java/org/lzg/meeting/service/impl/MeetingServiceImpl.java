@@ -111,7 +111,7 @@ public class MeetingServiceImpl extends ServiceImpl<MeetingMapper, Meeting> impl
 		meetingJoinDTO.setMeetingMemberList(redisComponent.getMeetingMemberList(meetingId));
 
 		SendMsgDTO sendMsgDTO = new SendMsgDTO();
-		sendMsgDTO.setMsgContent(null);
+		sendMsgDTO.setMsgContent(meetingJoinDTO);
 		sendMsgDTO.setMeetingId(meetingId);
 		sendMsgDTO.setMsgType(MessageTypeEnum.ADD_MEETING_ROOM.getType());
 		sendMsgDTO.setMsgSendType(MsgSendTypeEnum.GROUP.getValue());
