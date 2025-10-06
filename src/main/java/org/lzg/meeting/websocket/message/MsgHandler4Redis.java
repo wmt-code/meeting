@@ -1,6 +1,7 @@
 package org.lzg.meeting.websocket.message;
 
 import cn.hutool.json.JSONUtil;
+import jakarta.annotation.PreDestroy;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.lzg.meeting.constant.Constants;
@@ -47,5 +48,10 @@ public class MsgHandler4Redis implements MsgHandler {
 	@Override
 	public void sendMessage(SendMsgDTO sendMsgDTO) {
 		redissonClient.getTopic(MESSAGE_TOPIC).publish(sendMsgDTO);
+	}
+
+	@PreDestroy
+	public void preDestroy() {
+		redissonClient.shutdown();
 	}
 }
