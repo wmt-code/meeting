@@ -38,3 +38,7 @@ knife4j:
         language: zh_cn
 ws:
     port: 8082
+#消息处理 可选redis或rabbitmq
+message:
+    handle:
+        channel: redis

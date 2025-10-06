@@ -4,16 +4,16 @@ package org.lzg.meeting.controller;
 import jakarta.annotation.Resource;
 import org.lzg.meeting.common.BaseResponse;
 import org.lzg.meeting.common.ResultUtils;
+import org.lzg.meeting.enums.MsgSendTypeEnum;
 import org.lzg.meeting.exception.ErrorCode;
 import org.lzg.meeting.exception.ThrowUtils;
 import org.lzg.meeting.model.dto.PreJoinMeetingDTO;
 import org.lzg.meeting.model.dto.QuickMeetingDTO;
+import org.lzg.meeting.model.dto.SendMsgDTO;
 import org.lzg.meeting.model.dto.TokenUserInfo;
 import org.lzg.meeting.service.IMeetingService;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.lzg.meeting.websocket.message.MsgHandler;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * <p>
@@ -28,6 +28,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class MeetingController extends BaseController {
 	@Resource
 	private IMeetingService meetingService;
+	@Resource
+	private MsgHandler msgHandler;
 
 	/**
 	 * 快速创建会议
@@ -72,5 +74,14 @@ public class MeetingController extends BaseController {
 		meetingService.joinMeeting(tokenUserInfo.getMeetingId(), tokenUserInfo.getUserId(),
 				tokenUserInfo.getUserName(), videoOPen);
 		return ResultUtils.success(true);
+	}
+
+	@GetMapping("/test")
+	public void test() {
+		SendMsgDTO sendMsgDTO = new SendMsgDTO();
+		sendMsgDTO.setMsgSendType(MsgSendTypeEnum.USER.getValue());
+		sendMsgDTO.setReceiverId(1972897541794656258L);
+		sendMsgDTO.setMsgContent("现在时间是：" + System.currentTimeMillis());
+		msgHandler.sendMessage(sendMsgDTO);
 	}
 }
