@@ -11,12 +11,18 @@ import io.netty.util.concurrent.GlobalEventExecutor;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.lzg.meeting.component.RedisComponent;
+import org.lzg.meeting.enums.MeetingMemberStatusEnum;
+import org.lzg.meeting.enums.MessageTypeEnum;
 import org.lzg.meeting.enums.MsgSendTypeEnum;
+import org.lzg.meeting.model.dto.ExitMeetingDTO;
+import org.lzg.meeting.model.dto.MeetingMemberDTO;
 import org.lzg.meeting.model.dto.SendMsgDTO;
 import org.lzg.meeting.model.dto.TokenUserInfo;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
@@ -119,6 +125,41 @@ public class ChannelContextUtils {
 			return;
 		}
 		channelGroup.writeAndFlush(new TextWebSocketFrame(JSONUtil.toJsonStr(sendMsgDTO)));
+		// 退出会议
+		if (Objects.equals(MessageTypeEnum.EXIT_MEETING_ROOM.getType(), sendMsgDTO.getMsgType())) {
+			ExitMeetingDTO exitMeetingDTO = (ExitMeetingDTO) sendMsgDTO.getMsgContent();
+			removeChannelFromMeetingRoom(meetingId, exitMeetingDTO.getExitUserId());
+			List<MeetingMemberDTO> meetingMemberList = redisComponent.getMeetingMemberList(meetingId);
+			// 获取在线人数
+			List<MeetingMemberDTO> onlineMembers =
+					meetingMemberList.stream().filter(item -> Objects.equals(MeetingMemberStatusEnum.NORMAL.getStatus(), item.getStatus())).toList();
+			// 如果会议室没人了，移除会议室
+			if (onlineMembers.isEmpty()) {
+				MEETING_CHANNEL_GROUP_MAP.remove(meetingId);
+				log.info("会议室{}已无人在线，移除会议室", meetingId);
+			}
+		}
+		// 结束会议
+		if (Objects.equals(MessageTypeEnum.FINIS_MEETING.getType(), sendMsgDTO.getMsgType())) {
+			List<MeetingMemberDTO> meetingMemberList = redisComponent.getMeetingMemberList(meetingId);
+			for (MeetingMemberDTO member : meetingMemberList) {
+				removeChannelFromMeetingRoom(meetingId, member.getUserId());
+			}
+			MEETING_CHANNEL_GROUP_MAP.remove(meetingId);
+			log.info("会议室{}已结束，移除会议室", meetingId);
+		}
+	}
+
+	private void removeChannelFromMeetingRoom(Long meetingId, Long exitUserId) {
+		Channel channel = USER_CHANNEL_MAP.get(exitUserId);
+		if (channel == null) {
+			return;
+		}
+		ChannelGroup channelGroup = MEETING_CHANNEL_GROUP_MAP.get(meetingId);
+		if (channelGroup != null) {
+			channelGroup.remove(channel);
+			log.info("用户{}已从会议室{}移除", exitUserId, meetingId);
+		}
 	}
 
 	public void closeChannel(Long userId) {

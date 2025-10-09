@@ -2,6 +2,8 @@ package org.lzg.meeting.enums;
 
 import lombok.Getter;
 
+import java.util.Objects;
+
 /**
  * 消息类型枚举
  */
@@ -21,17 +23,17 @@ public enum MessageTypeEnum {
 	FORCE_OFF_LINE(10, "强制下线"),
 	MEETING_USER_VIDEO_CHANGE(11, "用户视频改变");
 
-	private final int type;
+	private final Integer type;
 	private final String desc;
 
-	MessageTypeEnum(int type, String desc) {
+	MessageTypeEnum(Integer type, String desc) {
 		this.type = type;
 		this.desc = desc;
 	}
 
-	public static MessageTypeEnum fromType(int type) {
+	public static MessageTypeEnum fromType(Integer type) {
 		for (MessageTypeEnum value : MessageTypeEnum.values()) {
-			if (value.getType() == type) {
+			if (Objects.equals(value.getType(), type)) {
 				return value;
 			}
 		}

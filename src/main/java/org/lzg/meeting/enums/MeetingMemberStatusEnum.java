@@ -14,15 +14,15 @@ public enum MeetingMemberStatusEnum {
 	KICK_OUT(3, "被踢出会议"),
 	BLACKLIST(4, "被拉黑");
 
-	private final int status;
+	private final Integer status;
 	private final String desc;
 
-	MeetingMemberStatusEnum(int status, String desc) {
+	MeetingMemberStatusEnum(Integer status, String desc) {
 		this.status = status;
 		this.desc = desc;
 	}
 
-	public static MeetingMemberStatusEnum fromStatus(int status) {
+	public static MeetingMemberStatusEnum fromStatus(Integer status) {
 		for (MeetingMemberStatusEnum value : MeetingMemberStatusEnum.values()) {
 			if (value.getStatus() == status) {
 				return value;

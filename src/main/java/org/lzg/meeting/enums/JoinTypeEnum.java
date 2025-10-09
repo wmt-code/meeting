@@ -10,10 +10,10 @@ public enum JoinTypeEnum {
 	NO_PASSWORD(0, "无需密码"),
 	NEED_PASSWORD(1, "需要密码");
 
-	private final int code;
+	private final Integer code;
 	private final String description;
 
-	JoinTypeEnum(int code, String description) {
+	JoinTypeEnum(Integer code, String description) {
 		this.code = code;
 		this.description = description;
 	}

@@ -1,5 +1,6 @@
 package org.lzg.meeting.service.impl;
 
+import cn.hutool.core.util.ArrayUtil;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -13,12 +14,15 @@ import org.lzg.meeting.exception.ThrowUtils;
 import org.lzg.meeting.mapper.MeetingMapper;
 import org.lzg.meeting.model.dto.*;
 import org.lzg.meeting.model.entity.Meeting;
+import org.lzg.meeting.model.entity.MeetingMember;
 import org.lzg.meeting.service.IMeetingMemberService;
 import org.lzg.meeting.service.IMeetingService;
+import org.lzg.meeting.websocket.message.MsgHandler;
 import org.lzg.meeting.websocket.netty.ChannelContextUtils;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -37,6 +41,8 @@ public class MeetingServiceImpl extends ServiceImpl<MeetingMapper, Meeting> impl
 	private IMeetingMemberService meetingMemberService;
 	@Resource
 	private RedisComponent redisComponent;
+	@Resource
+	private MsgHandler msgHandler;
 
 	@Override
 	public Long quickMeeting(QuickMeetingDTO quickMeetingDTO, TokenUserInfo tokenUserInfo) {
@@ -56,7 +62,7 @@ public class MeetingServiceImpl extends ServiceImpl<MeetingMapper, Meeting> impl
 		meeting.setCreateTime(LocalDateTime.now());
 		meeting.setCreateUserId(tokenUserInfo.getUserId());
 		meeting.setJoinType(joinType);
-		if (JoinTypeEnum.NEED_PASSWORD.getCode() == joinType) {
+		if (Objects.equals(JoinTypeEnum.NEED_PASSWORD.getCode(), joinType)) {
 			// 需要密码
 			if (StrUtil.isBlank(meetingPassword) || meetingPassword.length() < 4) {
 				throw new BusinessException(ErrorCode.PARAMS_ERROR, "会议密码不能为空且不能少于4位");
@@ -91,7 +97,7 @@ public class MeetingServiceImpl extends ServiceImpl<MeetingMapper, Meeting> impl
 			throw new BusinessException(ErrorCode.PARAMS_ERROR, "会议ID不能为空");
 		}
 		Meeting meeting = this.getById(meetingId);
-		if (null == meeting || meeting.getStatus() != MeetingStatusEnum.RUNNING.getValue()) {
+		if (null == meeting || !Objects.equals(meeting.getStatus(), MeetingStatusEnum.RUNNING.getValue())) {
 			throw new BusinessException(ErrorCode.PARAMS_ERROR, "会议不存在或已结束");
 		}
 		// 校验用户
@@ -115,8 +121,7 @@ public class MeetingServiceImpl extends ServiceImpl<MeetingMapper, Meeting> impl
 		sendMsgDTO.setMeetingId(meetingId);
 		sendMsgDTO.setMsgType(MessageTypeEnum.ADD_MEETING_ROOM.getType());
 		sendMsgDTO.setMsgSendType(MsgSendTypeEnum.GROUP.getValue());
-		channelContextUtils.sendMsg(sendMsgDTO);
-
+		msgHandler.sendMessage(sendMsgDTO);
 	}
 
 	@Override
@@ -140,7 +145,7 @@ public class MeetingServiceImpl extends ServiceImpl<MeetingMapper, Meeting> impl
 		// 校验用户类型是否被拉黑
 		checkMeetingJoin(meeting.getId(), tokenUserInfo.getUserId());
 
-		if (JoinTypeEnum.NEED_PASSWORD.getCode() == meeting.getJoinType()
+		if (Objects.equals(JoinTypeEnum.NEED_PASSWORD.getCode(), meeting.getJoinType())
 				&& !StrUtil.equals(meeting.getJoinPassword(), password)) {
 			throw new BusinessException(ErrorCode.PARAMS_ERROR, "会议密码错误");
 		}
@@ -151,9 +156,90 @@ public class MeetingServiceImpl extends ServiceImpl<MeetingMapper, Meeting> impl
 		return meeting.getId();
 	}
 
+	@Override
+	public Boolean exitMeeting(TokenUserInfo tokenUserInfo, MeetingMemberStatusEnum meetingMemberStatusEnum) {
+		Long meetingId = tokenUserInfo.getMeetingId();
+		if (meetingId == null) return false;
+		Long userId = tokenUserInfo.getUserId();
+		boolean exit = redisComponent.exitMeeting(meetingId, userId, meetingMemberStatusEnum);
+		// 成员未在会议中，直接清除meetingId
+		if (!exit) {
+			tokenUserInfo.setMeetingId(null);
+			redisComponent.updateTokenUserInfo(tokenUserInfo);
+			return true;
+		}
+		// 退出成功
+		SendMsgDTO sendMsgDTO = new SendMsgDTO();
+		sendMsgDTO.setMsgType(MessageTypeEnum.EXIT_MEETING_ROOM.getType());
+		// 清除meetingId
+		tokenUserInfo.setMeetingId(null);
+		redisComponent.updateTokenUserInfo(tokenUserInfo);
+		// 发送退出消息
+		ExitMeetingDTO exitMeetingDTO = new ExitMeetingDTO();
+		List<MeetingMemberDTO> meetingMemberList = redisComponent.getMeetingMemberList(meetingId);
+		exitMeetingDTO.setExitUserId(tokenUserInfo.getUserId());
+		exitMeetingDTO.setMeetingMemberDTOList(meetingMemberList);
+		exitMeetingDTO.setExitStaus(meetingMemberStatusEnum.getStatus());
+		sendMsgDTO.setMsgContent(exitMeetingDTO);
+		sendMsgDTO.setMeetingId(meetingId);
+		sendMsgDTO.setMsgSendType(MsgSendTypeEnum.GROUP.getValue());
+		msgHandler.sendMessage(sendMsgDTO);
+		// 获取在线成员
+		List<MeetingMemberDTO> onlineMembers = redisComponent.getMeetingMemberList(meetingId).stream()
+				.filter(item -> Objects.equals(MeetingMemberStatusEnum.NORMAL.getStatus(), item.getStatus())).toList();
+		// 如果会议室没人了，结束会议
+		if (onlineMembers.isEmpty()) {
+			finishMeeting(meetingId);
+			return true;
+		}
+		// 更新成员状态
+		if (ArrayUtil.contains(new Integer[]{MeetingMemberStatusEnum.BLACKLIST.getStatus(),
+				MeetingMemberStatusEnum.KICK_OUT.getStatus()}, meetingMemberStatusEnum.getStatus())) {
+			MeetingMember meetingMember = new MeetingMember();
+			meetingMember.setStatus(meetingMemberStatusEnum.getStatus());
+			boolean update = meetingMemberService.update(meetingMember, new QueryWrapper<MeetingMember>()
+					.eq("meeting_id", meetingId)
+					.eq("user_id", userId));
+			ThrowUtils.throwIf(!update, ErrorCode.OPERATION_ERROR, "更新成员状态失败");
+		}
+		return true;
+	}
+
+	@Override
+	public Boolean finishMeeting(Long meetingId) {
+		// 结束会议 更新状态
+		Meeting meeting = new Meeting();
+		meeting.setId(meetingId);
+		meeting.setStatus(MeetingStatusEnum.END.getValue());
+		boolean update = this.updateById(meeting);
+		ThrowUtils.throwIf(!update, ErrorCode.OPERATION_ERROR, "结束会议失败");
+
+		// 清除redis会议成员
+		List<MeetingMemberDTO> meetingMemberList = redisComponent.getMeetingMemberList(meetingId);
+		for (MeetingMemberDTO member : meetingMemberList) {
+			redisComponent.exitMeeting(meetingId, member.getUserId(), MeetingMemberStatusEnum.EXIT_MEETING);
+			// 清除token中的meetingId
+			TokenUserInfo tokenUserInfo = redisComponent.getTokenUserInfoByUserId(member.getUserId());
+			if (tokenUserInfo != null) {
+				tokenUserInfo.setMeetingId(null);
+				redisComponent.updateTokenUserInfo(tokenUserInfo);
+			}
+		}
+		// 清除会议成员列表
+		redisComponent.clearMeetingMemberList(meetingId);
+		// 发送结束会议消息
+		SendMsgDTO sendMsgDTO = new SendMsgDTO();
+		sendMsgDTO.setMsgType(MessageTypeEnum.FINIS_MEETING.getType());
+		sendMsgDTO.setMeetingId(meetingId);
+		sendMsgDTO.setMsgSendType(MsgSendTypeEnum.GROUP.getValue());
+		msgHandler.sendMessage(sendMsgDTO);
+		return true;
+	}
+
 	private void checkMeetingJoin(Long meetingId, Long userId) {
 		MeetingMemberDTO meetingMemberDTO = redisComponent.getMeetingMemberDTO(meetingId, userId);
-		if (meetingMemberDTO != null && MeetingMemberStatusEnum.BLACKLIST.getStatus() == meetingMemberDTO.getStatus()) {
+		if (meetingMemberDTO != null && Objects.equals(MeetingMemberStatusEnum.BLACKLIST.getStatus(),
+				meetingMemberDTO.getStatus())) {
 			throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "您已被拉黑，无法再次加入");
 		}
 	}

@@ -3,6 +3,7 @@ package org.lzg.meeting.service.impl;
 import cn.hutool.captcha.CaptchaUtil;
 import cn.hutool.captcha.LineCaptcha;
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.SecureUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -100,6 +101,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 		user.setUserPassword(encPassword(userPassword));
 		user.setUserName(userAccount);
 		user.setUserRole(UserConstant.DEFAULT_ROLE);
+		// 设置随机会议号
+		user.setMeetingNo(Math.abs(RandomUtil.randomInt()));
 		boolean save = this.save(user);
 		ThrowUtils.throwIf(!save, ErrorCode.OPERATION_ERROR);
 		return true;

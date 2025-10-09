@@ -26,8 +26,8 @@ import org.springframework.stereotype.Component;
 @Component
 @Slf4j
 public class NettyWebsocketStarter implements Runnable {
-	private EventLoopGroup boss = new NioEventLoopGroup();
-	private  EventLoopGroup worker = new NioEventLoopGroup();
+	private final EventLoopGroup boss = new NioEventLoopGroup();
+	private final EventLoopGroup worker = new NioEventLoopGroup();
 	@Resource
 	private WebSocketHandler webSocketHandler;
 	@Resource

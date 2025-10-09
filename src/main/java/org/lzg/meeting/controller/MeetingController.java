@@ -4,15 +4,15 @@ package org.lzg.meeting.controller;
 import jakarta.annotation.Resource;
 import org.lzg.meeting.common.BaseResponse;
 import org.lzg.meeting.common.ResultUtils;
-import org.lzg.meeting.enums.MsgSendTypeEnum;
+import org.lzg.meeting.constant.UserConstant;
+import org.lzg.meeting.enums.MeetingMemberStatusEnum;
 import org.lzg.meeting.exception.ErrorCode;
 import org.lzg.meeting.exception.ThrowUtils;
 import org.lzg.meeting.model.dto.PreJoinMeetingDTO;
 import org.lzg.meeting.model.dto.QuickMeetingDTO;
-import org.lzg.meeting.model.dto.SendMsgDTO;
 import org.lzg.meeting.model.dto.TokenUserInfo;
+import org.lzg.meeting.model.entity.Meeting;
 import org.lzg.meeting.service.IMeetingService;
-import org.lzg.meeting.websocket.message.MsgHandler;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -28,8 +28,6 @@ import org.springframework.web.bind.annotation.*;
 public class MeetingController extends BaseController {
 	@Resource
 	private IMeetingService meetingService;
-	@Resource
-	private MsgHandler msgHandler;
 
 	/**
 	 * 快速创建会议
@@ -76,12 +74,69 @@ public class MeetingController extends BaseController {
 		return ResultUtils.success(true);
 	}
 
-	@GetMapping("/test")
-	public void test() {
-		SendMsgDTO sendMsgDTO = new SendMsgDTO();
-		sendMsgDTO.setMsgSendType(MsgSendTypeEnum.USER.getValue());
-		sendMsgDTO.setReceiverId(1972897541794656258L);
-		sendMsgDTO.setMsgContent("现在时间是：" + System.currentTimeMillis());
-		msgHandler.sendMessage(sendMsgDTO);
+	/**
+	 * 用户退出会议
+	 *
+	 * @return 是否成功
+	 */
+	@GetMapping("/exitMeeting")
+	public BaseResponse<Boolean> exitMeeting() {
+		TokenUserInfo tokenUserInfo = getTokenUserInfo();
+		Boolean res = meetingService.exitMeeting(tokenUserInfo, MeetingMemberStatusEnum.EXIT_MEETING);
+		return ResultUtils.success(res);
+	}
+
+	/**
+	 * 将某个用户踢出会议
+	 *
+	 * @param userId 用户ID
+	 * @return 是否成功
+	 */
+	@GetMapping("/kickOutMeeting")
+	public BaseResponse<Boolean> kickOutMeeting(@RequestParam Long userId) {
+		ThrowUtils.throwIf(null == userId || userId <= 0, ErrorCode.PARAMS_ERROR);
+		TokenUserInfo tokenUserInfo = getTokenUserInfo();
+		// 只有主持人能够踢人
+		Long meetingId = tokenUserInfo.getMeetingId();
+		ThrowUtils.throwIf(null == meetingId, ErrorCode.NOT_FOUND_ERROR);
+		Meeting meeting = meetingService.getById(meetingId);
+		ThrowUtils.throwIf(null == meeting || (!meeting.getCreateUserId().equals(tokenUserInfo.getUserId()) && !UserConstant.ADMIN_ROLE.equals(tokenUserInfo.getUserRole())),
+				ErrorCode.NO_AUTH_ERROR);
+		Boolean res = meetingService.exitMeeting(tokenUserInfo, MeetingMemberStatusEnum.KICK_OUT);
+		return ResultUtils.success(res);
+	}
+
+	/**
+	 * 将某个用户拉黑
+	 *
+	 * @param userId 用户ID
+	 * @return 是否成功
+	 */
+	@GetMapping("/blackList")
+	public BaseResponse<Boolean> blackList(@RequestParam Long userId) {
+		ThrowUtils.throwIf(null == userId || userId <= 0, ErrorCode.PARAMS_ERROR);
+		TokenUserInfo tokenUserInfo = getTokenUserInfo();
+		// 只有主持人能够拉黑用户
+		Long meetingId = tokenUserInfo.getMeetingId();
+		ThrowUtils.throwIf(null == meetingId, ErrorCode.NOT_FOUND_ERROR);
+		Meeting meeting = meetingService.getById(meetingId);
+		ThrowUtils.throwIf(null == meeting || (!meeting.getCreateUserId().equals(tokenUserInfo.getUserId()) && !UserConstant.ADMIN_ROLE.equals(tokenUserInfo.getUserRole())),
+				ErrorCode.NO_AUTH_ERROR);
+		Boolean res = meetingService.exitMeeting(tokenUserInfo, MeetingMemberStatusEnum.BLACKLIST);
+		return ResultUtils.success(res);
+	}
+
+	@GetMapping("/finishMeeting")
+	public BaseResponse<Meeting> finishMeeting() {
+		TokenUserInfo tokenUserInfo = getTokenUserInfo();
+		Long meetingId = tokenUserInfo.getMeetingId();
+		ThrowUtils.throwIf(null == meetingId, ErrorCode.NOT_FOUND_ERROR);
+		Meeting meeting = meetingService.getById(meetingId);
+		// 只有主持人能够结束会议
+		ThrowUtils.throwIf(null == meeting || (!meeting.getCreateUserId().equals(tokenUserInfo.getUserId()) && !UserConstant.ADMIN_ROLE.equals(tokenUserInfo.getUserRole())),
+				ErrorCode.NO_AUTH_ERROR);
+		Boolean res = meetingService.finishMeeting(meetingId);
+		ThrowUtils.throwIf(!res, ErrorCode.OPERATION_ERROR, "结束会议失败");
+		return ResultUtils.success(meeting);
 	}
 }
