@@ -59,4 +59,6 @@ public interface IMeetingService extends IService<Meeting> {
 	 * @return 是否成功
 	 */
 	Boolean finishMeeting(Long meetingId);
+
+	Boolean forceExitingMeeting(Long userId, TokenUserInfo tokenUserInfo, MeetingMemberStatusEnum meetingMemberStatusEnum);
 }

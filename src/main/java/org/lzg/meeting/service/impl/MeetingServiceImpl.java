@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import jakarta.annotation.Resource;
 import org.lzg.meeting.component.RedisComponent;
+import org.lzg.meeting.constant.UserConstant;
 import org.lzg.meeting.enums.*;
 import org.lzg.meeting.exception.BusinessException;
 import org.lzg.meeting.exception.ErrorCode;
@@ -136,9 +137,10 @@ public class MeetingServiceImpl extends ServiceImpl<MeetingMapper, Meeting> impl
 		if (meetingId != null) {
 			throw new BusinessException(ErrorCode.OPERATION_ERROR, "您已在会议中,无法加入其他会议");
 		}
-		Meeting meeting = this.getOne(new QueryWrapper<Meeting>()
-				.eq("meetingNo", meetingNo)
-				.eq("status", MeetingStatusEnum.RUNNING.getValue()));
+		Meeting meeting = this.list(new QueryWrapper<Meeting>()
+						.eq("meetingNo", meetingNo)
+						.eq("status", MeetingStatusEnum.RUNNING.getValue()))
+				.getFirst();
 		if (null == meeting) {
 			throw new BusinessException(ErrorCode.PARAMS_ERROR, "会议不存在或已结束");
 		}
@@ -198,8 +200,8 @@ public class MeetingServiceImpl extends ServiceImpl<MeetingMapper, Meeting> impl
 			MeetingMember meetingMember = new MeetingMember();
 			meetingMember.setStatus(meetingMemberStatusEnum.getStatus());
 			boolean update = meetingMemberService.update(meetingMember, new QueryWrapper<MeetingMember>()
-					.eq("meeting_id", meetingId)
-					.eq("user_id", userId));
+					.eq("meetingId", meetingId)
+					.eq("userId", userId));
 			ThrowUtils.throwIf(!update, ErrorCode.OPERATION_ERROR, "更新成员状态失败");
 		}
 		return true;
@@ -211,13 +213,20 @@ public class MeetingServiceImpl extends ServiceImpl<MeetingMapper, Meeting> impl
 		Meeting meeting = new Meeting();
 		meeting.setId(meetingId);
 		meeting.setStatus(MeetingStatusEnum.END.getValue());
+		meeting.setEndTime(LocalDateTime.now());
 		boolean update = this.updateById(meeting);
 		ThrowUtils.throwIf(!update, ErrorCode.OPERATION_ERROR, "结束会议失败");
+		// 更新会议中的成员状态
+		MeetingMember meetingMember = new MeetingMember();
+		meetingMember.setStatus(MeetingMemberStatusEnum.EXIT_MEETING.getStatus());
+		meetingMember.setMeetingStatus(MeetingStatusEnum.END.getValue());
+		meetingMember.setMeetingId(meetingId);
+		meetingMemberService.update(meetingMember, new QueryWrapper<MeetingMember>()
+				.eq("meetingId", meetingId));
 
 		// 清除redis会议成员
 		List<MeetingMemberDTO> meetingMemberList = redisComponent.getMeetingMemberList(meetingId);
 		for (MeetingMemberDTO member : meetingMemberList) {
-			redisComponent.exitMeeting(meetingId, member.getUserId(), MeetingMemberStatusEnum.EXIT_MEETING);
 			// 清除token中的meetingId
 			TokenUserInfo tokenUserInfo = redisComponent.getTokenUserInfoByUserId(member.getUserId());
 			if (tokenUserInfo != null) {
@@ -236,6 +245,24 @@ public class MeetingServiceImpl extends ServiceImpl<MeetingMapper, Meeting> impl
 		return true;
 	}
 
+	@Override
+	public Boolean forceExitingMeeting(Long userId, TokenUserInfo tokenUserInfo,
+									   MeetingMemberStatusEnum meetingMemberStatusEnum) {
+		// 只有主持人或管理员能够拉黑或踢出用户
+		Long meetingId = tokenUserInfo.getMeetingId();
+		ThrowUtils.throwIf(null == meetingId, ErrorCode.NOT_FOUND_ERROR);
+		Meeting meeting = this.getById(meetingId);
+		ThrowUtils.throwIf(null == meeting || (!meeting.getCreateUserId().equals(tokenUserInfo.getUserId()) && !UserConstant.ADMIN_ROLE.equals(tokenUserInfo.getUserRole())),
+				ErrorCode.NO_AUTH_ERROR);
+		// 不能拉黑或踢出自己
+		ThrowUtils.throwIf(userId.equals(tokenUserInfo.getUserId()), ErrorCode.PARAMS_ERROR, "不能拉黑或踢出自己");
+		// 获取用户信息
+		TokenUserInfo tokenUserInfoByUserId = redisComponent.getTokenUserInfoByUserId(userId);
+		ThrowUtils.throwIf(null == tokenUserInfoByUserId || !meetingId.equals(tokenUserInfoByUserId.getMeetingId()),
+				ErrorCode.PARAMS_ERROR, "用户不在会议中");
+		return exitMeeting(tokenUserInfoByUserId, meetingMemberStatusEnum);
+	}
+
 	private void checkMeetingJoin(Long meetingId, Long userId) {
 		MeetingMemberDTO meetingMemberDTO = redisComponent.getMeetingMemberDTO(meetingId, userId);
 		if (meetingMemberDTO != null && Objects.equals(MeetingMemberStatusEnum.BLACKLIST.getStatus(),
@@ -246,6 +273,7 @@ public class MeetingServiceImpl extends ServiceImpl<MeetingMapper, Meeting> impl
 
 
 	private void add2Meeting(Long meetingId, Long userId, String userName, Integer memberType, Boolean videoOpen) {
+
 		MeetingMemberDTO meetingMemberDTO = new MeetingMemberDTO();
 		meetingMemberDTO.setUserId(userId);
 		meetingMemberDTO.setMeetingId(meetingId);

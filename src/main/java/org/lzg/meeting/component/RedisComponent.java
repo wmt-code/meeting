@@ -148,6 +148,9 @@ public class RedisComponent {
 	 * 清空会议成员列表
 	 */
 	public void clearMeetingMemberList(Long meetingId) {
-		redisUtil.hDelete(Constants.MEETING_ROOM_KEY + meetingId);
+		List<MeetingMemberDTO> meetingMemberList = getMeetingMemberList(meetingId);
+		List<String> userIdList =
+				meetingMemberList.stream().map(m -> String.valueOf(m.getUserId())).distinct().toList();
+		redisUtil.hDelete(Constants.MEETING_ROOM_KEY + meetingId, userIdList.toArray(new String[userIdList.size()]));
 	}
 }

@@ -1,11 +1,13 @@
 package org.lzg.meeting.service.impl;
 
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.lzg.meeting.enums.MeetingMemberStatusEnum;
 import org.lzg.meeting.enums.MeetingStatusEnum;
-import org.lzg.meeting.model.entity.MeetingMember;
+import org.lzg.meeting.exception.BusinessException;
+import org.lzg.meeting.exception.ErrorCode;
 import org.lzg.meeting.mapper.MeetingMemberMapper;
+import org.lzg.meeting.model.entity.MeetingMember;
 import org.lzg.meeting.service.IMeetingMemberService;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -30,6 +32,10 @@ public class MeetingMemberServiceImpl extends ServiceImpl<MeetingMemberMapper, M
 	 */
 	@Override
 	public void addMeetingMember(Long meetingId, Long userId, String userName, Integer memberType) {
+		MeetingMember exist = this.lambdaQuery()
+				.eq(MeetingMember::getMeetingId, meetingId)
+				.eq(MeetingMember::getUserId, userId)
+				.one();
 		MeetingMember meetingMember = new MeetingMember();
 		meetingMember.setMeetingId(meetingId);
 		meetingMember.setUserId(userId);
@@ -38,9 +44,12 @@ public class MeetingMemberServiceImpl extends ServiceImpl<MeetingMemberMapper, M
 		meetingMember.setStatus(MeetingMemberStatusEnum.NORMAL.getStatus());
 		meetingMember.setMemberType(memberType);
 		meetingMember.setMeetingStatus(MeetingStatusEnum.RUNNING.getValue());
+		if (exist != null) {
+			meetingMember.setId(exist.getId());
+		}
 		boolean saveOrUpdate = this.saveOrUpdate(meetingMember);
 		if (!saveOrUpdate) {
-			throw new RuntimeException("添加会议成员失败");
+			throw new BusinessException(ErrorCode.OPERATION_ERROR, "添加会议成员失败");
 		}
 	}
 }

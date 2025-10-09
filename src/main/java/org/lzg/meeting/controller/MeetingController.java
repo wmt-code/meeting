@@ -96,13 +96,7 @@ public class MeetingController extends BaseController {
 	public BaseResponse<Boolean> kickOutMeeting(@RequestParam Long userId) {
 		ThrowUtils.throwIf(null == userId || userId <= 0, ErrorCode.PARAMS_ERROR);
 		TokenUserInfo tokenUserInfo = getTokenUserInfo();
-		// 只有主持人能够踢人
-		Long meetingId = tokenUserInfo.getMeetingId();
-		ThrowUtils.throwIf(null == meetingId, ErrorCode.NOT_FOUND_ERROR);
-		Meeting meeting = meetingService.getById(meetingId);
-		ThrowUtils.throwIf(null == meeting || (!meeting.getCreateUserId().equals(tokenUserInfo.getUserId()) && !UserConstant.ADMIN_ROLE.equals(tokenUserInfo.getUserRole())),
-				ErrorCode.NO_AUTH_ERROR);
-		Boolean res = meetingService.exitMeeting(tokenUserInfo, MeetingMemberStatusEnum.KICK_OUT);
+		Boolean res = meetingService.forceExitingMeeting(userId, tokenUserInfo, MeetingMemberStatusEnum.KICK_OUT);
 		return ResultUtils.success(res);
 	}
 
@@ -116,13 +110,7 @@ public class MeetingController extends BaseController {
 	public BaseResponse<Boolean> blackList(@RequestParam Long userId) {
 		ThrowUtils.throwIf(null == userId || userId <= 0, ErrorCode.PARAMS_ERROR);
 		TokenUserInfo tokenUserInfo = getTokenUserInfo();
-		// 只有主持人能够拉黑用户
-		Long meetingId = tokenUserInfo.getMeetingId();
-		ThrowUtils.throwIf(null == meetingId, ErrorCode.NOT_FOUND_ERROR);
-		Meeting meeting = meetingService.getById(meetingId);
-		ThrowUtils.throwIf(null == meeting || (!meeting.getCreateUserId().equals(tokenUserInfo.getUserId()) && !UserConstant.ADMIN_ROLE.equals(tokenUserInfo.getUserRole())),
-				ErrorCode.NO_AUTH_ERROR);
-		Boolean res = meetingService.exitMeeting(tokenUserInfo, MeetingMemberStatusEnum.BLACKLIST);
+		Boolean res = meetingService.forceExitingMeeting(userId, tokenUserInfo, MeetingMemberStatusEnum.BLACKLIST);
 		return ResultUtils.success(res);
 	}
 
