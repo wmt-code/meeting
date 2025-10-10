@@ -12,8 +12,12 @@ import org.lzg.meeting.model.dto.PreJoinMeetingDTO;
 import org.lzg.meeting.model.dto.QuickMeetingDTO;
 import org.lzg.meeting.model.dto.TokenUserInfo;
 import org.lzg.meeting.model.entity.Meeting;
+import org.lzg.meeting.model.entity.MeetingMember;
+import org.lzg.meeting.service.IMeetingMemberService;
 import org.lzg.meeting.service.IMeetingService;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * <p>
@@ -28,6 +32,8 @@ import org.springframework.web.bind.annotation.*;
 public class MeetingController extends BaseController {
 	@Resource
 	private IMeetingService meetingService;
+	@Resource
+	private IMeetingMemberService meetingMemberService;
 
 	/**
 	 * 快速创建会议
@@ -126,5 +132,43 @@ public class MeetingController extends BaseController {
 		Boolean res = meetingService.finishMeeting(meetingId);
 		ThrowUtils.throwIf(!res, ErrorCode.OPERATION_ERROR, "结束会议失败");
 		return ResultUtils.success(meeting);
+	}
+
+	/**
+	 * 删除会议记录
+	 *
+	 * @param meetingId 会议ID
+	 * @return 是否成功
+	 */
+	@GetMapping("/deleteMeetingRecord")
+	public BaseResponse<Boolean> deleteMeetingRecord(@RequestParam Long meetingId) {
+		ThrowUtils.throwIf(null == meetingId || meetingId <= 0, ErrorCode.PARAMS_ERROR);
+		TokenUserInfo tokenUserInfo = getTokenUserInfo();
+		MeetingMember meetingMember = new MeetingMember();
+		meetingMember.setStatus(MeetingMemberStatusEnum.DEL_MEETING.getStatus());
+		boolean update = meetingMemberService.lambdaUpdate()
+				.eq(MeetingMember::getMeetingId, meetingId)
+				.eq(MeetingMember::getUserId, tokenUserInfo.getUserId())
+				.update(meetingMember);
+		ThrowUtils.throwIf(!update, ErrorCode.OPERATION_ERROR, "删除会议记录失败");
+		return ResultUtils.success(true);
+	}
+
+	/**
+	 * 加载会议成员列表
+	 * @param meetingId 会议ID
+	 * @return 会议成员列表
+	 */
+	@GetMapping("/loadMeetingMembers")
+	public BaseResponse<List<MeetingMember>> loadMeetingMembers(@RequestParam Long meetingId) {
+		ThrowUtils.throwIf(null == meetingId || meetingId <= 0, ErrorCode.PARAMS_ERROR);
+		TokenUserInfo tokenUserInfo = getTokenUserInfo();
+		List<MeetingMember> meetingMemberList = meetingMemberService.lambdaQuery()
+				.eq(MeetingMember::getMeetingId, meetingId)
+				.list();
+		List<MeetingMember> list = meetingMemberList.stream().filter(item -> item
+				.getUserId().equals(tokenUserInfo.getUserId())).toList();
+		ThrowUtils.throwIf(list.isEmpty(), ErrorCode.NO_AUTH_ERROR);
+		return ResultUtils.success(list);
 	}
 }

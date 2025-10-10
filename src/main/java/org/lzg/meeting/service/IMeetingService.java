@@ -60,5 +60,12 @@ public interface IMeetingService extends IService<Meeting> {
 	 */
 	Boolean finishMeeting(Long meetingId);
 
+	/**
+	 * 强制某人退出会议
+	 * @param userId 	 用户ID
+	 * @param tokenUserInfo 操作者信息
+	 * @param meetingMemberStatusEnum 退出会议的状态
+	 * @return 是否成功
+	 */
 	Boolean forceExitingMeeting(Long userId, TokenUserInfo tokenUserInfo, MeetingMemberStatusEnum meetingMemberStatusEnum);
 }

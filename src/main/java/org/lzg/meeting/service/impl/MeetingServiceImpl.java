@@ -209,7 +209,7 @@ public class MeetingServiceImpl extends ServiceImpl<MeetingMapper, Meeting> impl
 
 	@Override
 	public Boolean finishMeeting(Long meetingId) {
-		// 结束会议 更新状态
+		// 结束会议 更新会议状态
 		Meeting meeting = new Meeting();
 		meeting.setId(meetingId);
 		meeting.setStatus(MeetingStatusEnum.END.getValue());
@@ -224,7 +224,6 @@ public class MeetingServiceImpl extends ServiceImpl<MeetingMapper, Meeting> impl
 		meetingMemberService.update(meetingMember, new QueryWrapper<MeetingMember>()
 				.eq("meetingId", meetingId));
 
-		// 清除redis会议成员
 		List<MeetingMemberDTO> meetingMemberList = redisComponent.getMeetingMemberList(meetingId);
 		for (MeetingMemberDTO member : meetingMemberList) {
 			// 清除token中的meetingId
