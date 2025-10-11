@@ -16,11 +16,16 @@ import org.lzg.meeting.mapper.MeetingMapper;
 import org.lzg.meeting.model.dto.*;
 import org.lzg.meeting.model.entity.Meeting;
 import org.lzg.meeting.model.entity.MeetingMember;
+import org.lzg.meeting.model.entity.MeetingReserve;
+import org.lzg.meeting.model.entity.MeetingReserveMember;
 import org.lzg.meeting.service.IMeetingMemberService;
+import org.lzg.meeting.service.IMeetingReserveMemberService;
+import org.lzg.meeting.service.IMeetingReserveService;
 import org.lzg.meeting.service.IMeetingService;
 import org.lzg.meeting.websocket.message.MsgHandler;
 import org.lzg.meeting.websocket.netty.ChannelContextUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -44,6 +49,12 @@ public class MeetingServiceImpl extends ServiceImpl<MeetingMapper, Meeting> impl
 	private RedisComponent redisComponent;
 	@Resource
 	private MsgHandler msgHandler;
+	@Resource
+	private TransactionTemplate transactionTemplate;
+	@Resource
+	private IMeetingReserveService meetingReserveService;
+	@Resource
+	private IMeetingReserveMemberService meetingReserveMemberService;
 
 	@Override
 	public Long quickMeeting(QuickMeetingDTO quickMeetingDTO, TokenUserInfo tokenUserInfo) {
@@ -69,8 +80,6 @@ public class MeetingServiceImpl extends ServiceImpl<MeetingMapper, Meeting> impl
 				throw new BusinessException(ErrorCode.PARAMS_ERROR, "会议密码不能为空且不能少于4位");
 			}
 			meeting.setJoinPassword(meetingPassword);
-		} else {
-			meeting.setJoinPassword("");
 		}
 		// 会议号类型 0 使用个人会议号 1 使用随机会议号
 		if (Objects.equals(MeetingNoTypeEnum.PERSONAL_MEETING_NO.getValue(), meetingNoType)) {
@@ -191,8 +200,20 @@ public class MeetingServiceImpl extends ServiceImpl<MeetingMapper, Meeting> impl
 				.filter(item -> Objects.equals(MeetingMemberStatusEnum.NORMAL.getStatus(), item.getStatus())).toList();
 		// 如果会议室没人了，结束会议
 		if (onlineMembers.isEmpty()) {
-			finishMeeting(meetingId);
-			return true;
+			// 如果是预约会议，时间到则更新预约会议状态为已结束
+			MeetingReserve meetingReserve = meetingReserveService.getById(meetingId);
+			if (meetingReserve == null) {
+				// 不是预约会议
+				// 结束会议
+				return finishMeeting(meetingId);
+			}
+			// 是预约会议，判断是否到结束时间
+			LocalDateTime endTime =
+					meetingReserve.getStartTime().plusMinutes(meetingReserve.getDuration());
+			if (LocalDateTime.now().isAfter(endTime) || LocalDateTime.now().isEqual(endTime)) {
+				// 结束会议
+				return finishMeeting(meetingId);
+			}
 		}
 		// 更新成员状态
 		if (ArrayUtil.contains(new Integer[]{MeetingMemberStatusEnum.BLACKLIST.getStatus(),
@@ -209,39 +230,46 @@ public class MeetingServiceImpl extends ServiceImpl<MeetingMapper, Meeting> impl
 
 	@Override
 	public Boolean finishMeeting(Long meetingId) {
-		// 结束会议 更新会议状态
-		Meeting meeting = new Meeting();
-		meeting.setId(meetingId);
-		meeting.setStatus(MeetingStatusEnum.END.getValue());
-		meeting.setEndTime(LocalDateTime.now());
-		boolean update = this.updateById(meeting);
-		ThrowUtils.throwIf(!update, ErrorCode.OPERATION_ERROR, "结束会议失败");
-		// 更新会议中的成员状态
-		MeetingMember meetingMember = new MeetingMember();
-		meetingMember.setStatus(MeetingMemberStatusEnum.EXIT_MEETING.getStatus());
-		meetingMember.setMeetingStatus(MeetingStatusEnum.END.getValue());
-		meetingMember.setMeetingId(meetingId);
-		meetingMemberService.update(meetingMember, new QueryWrapper<MeetingMember>()
-				.eq("meetingId", meetingId));
+		return transactionTemplate.execute(status -> {
+			// 结束会议 更新会议状态
+			Meeting meeting = new Meeting();
+			meeting.setId(meetingId);
+			meeting.setStatus(MeetingStatusEnum.END.getValue());
+			meeting.setEndTime(LocalDateTime.now());
+			boolean update = this.updateById(meeting);
+			ThrowUtils.throwIf(!update, ErrorCode.OPERATION_ERROR, "结束会议失败");
+			// 更新会议中的成员状态
+			MeetingMember meetingMember = new MeetingMember();
+			meetingMember.setStatus(MeetingMemberStatusEnum.EXIT_MEETING.getStatus());
+			meetingMember.setMeetingStatus(MeetingStatusEnum.END.getValue());
+			meetingMember.setMeetingId(meetingId);
+			meetingMemberService.update(meetingMember, new QueryWrapper<MeetingMember>()
+					.eq("meetingId", meetingId));
+			// 更新预约会议状态
+			MeetingReserve meetingReserve = new MeetingReserve();
+			meetingReserve.setMeetingId(meetingId);
+			meetingReserve.setStatus(MeetingReserveStatusEnum.COMPLETED.getStatus());
+			meetingReserveService.updateById(meetingReserve);
 
-		List<MeetingMemberDTO> meetingMemberList = redisComponent.getMeetingMemberList(meetingId);
-		for (MeetingMemberDTO member : meetingMemberList) {
-			// 清除token中的meetingId
-			TokenUserInfo tokenUserInfo = redisComponent.getTokenUserInfoByUserId(member.getUserId());
-			if (tokenUserInfo != null) {
-				tokenUserInfo.setMeetingId(null);
-				redisComponent.updateTokenUserInfo(tokenUserInfo);
+			List<MeetingMemberDTO> meetingMemberList = redisComponent.getMeetingMemberList(meetingId);
+			for (MeetingMemberDTO member : meetingMemberList) {
+				// 清除token中的meetingId
+				TokenUserInfo tokenUserInfo = redisComponent.getTokenUserInfoByUserId(member.getUserId());
+				if (tokenUserInfo != null) {
+					tokenUserInfo.setMeetingId(null);
+					redisComponent.updateTokenUserInfo(tokenUserInfo);
+				}
 			}
-		}
-		// 清除会议成员列表
-		redisComponent.clearMeetingMemberList(meetingId);
-		// 发送结束会议消息
-		SendMsgDTO sendMsgDTO = new SendMsgDTO();
-		sendMsgDTO.setMsgType(MessageTypeEnum.FINIS_MEETING.getType());
-		sendMsgDTO.setMeetingId(meetingId);
-		sendMsgDTO.setMsgSendType(MsgSendTypeEnum.GROUP.getValue());
-		msgHandler.sendMessage(sendMsgDTO);
-		return true;
+			// 清除会议成员列表
+			redisComponent.clearMeetingMemberList(meetingId);
+			// 发送结束会议消息
+			SendMsgDTO sendMsgDTO = new SendMsgDTO();
+			sendMsgDTO.setMsgType(MessageTypeEnum.FINIS_MEETING.getType());
+			sendMsgDTO.setMeetingId(meetingId);
+			sendMsgDTO.setMsgSendType(MsgSendTypeEnum.GROUP.getValue());
+			msgHandler.sendMessage(sendMsgDTO);
+			return true;
+		});
 	}
 
 	@Override
@@ -260,6 +288,64 @@ public class MeetingServiceImpl extends ServiceImpl<MeetingMapper, Meeting> impl
 		ThrowUtils.throwIf(null == tokenUserInfoByUserId || !meetingId.equals(tokenUserInfoByUserId.getMeetingId()),
 				ErrorCode.PARAMS_ERROR, "用户不在会议中");
 		return exitMeeting(tokenUserInfoByUserId, meetingMemberStatusEnum);
+	}
+
+	@Override
+	public Long joinReserveMeeting(JoinReserveMeetingDTO joinReserveMeetingDTO, TokenUserInfo tokenUserInfo) {
+		Long meetingId = joinReserveMeetingDTO.getMeetingId();
+		ThrowUtils.throwIf(null == meetingId || meetingId <= 0, ErrorCode.PARAMS_ERROR);
+		String joinPassword = joinReserveMeetingDTO.getJoinPassword();
+		MeetingReserve meetingReserve = meetingReserveService.getById(meetingId);
+		// 预约会议不存在，抛出异常
+		ThrowUtils.throwIf(null == meetingReserve, ErrorCode.NOT_FOUND_ERROR, "预约会议不存在");
+		// 判断当前用户是否被邀请
+		boolean isInvited = meetingReserveMemberService.lambdaQuery()
+				.eq(MeetingReserveMember::getMeetingId, meetingId)
+				.eq(MeetingReserveMember::getInvitateUserId, tokenUserInfo.getUserId())
+				.exists();
+		ThrowUtils.throwIf(!isInvited, ErrorCode.NO_AUTH_ERROR, "您未被邀请，无法加入该会议");
+		// 判断会议是否开始
+		ThrowUtils.throwIf(meetingReserve.getStartTime().isAfter(LocalDateTime.now()),
+				ErrorCode.PARAMS_ERROR, "会议未开始，无法加入");
+		// 判断会议是否结束
+		ThrowUtils.throwIf(MeetingReserveStatusEnum.COMPLETED.getStatus().equals(meetingReserve.getStatus()),
+				ErrorCode.PARAMS_ERROR, "会议已结束，无法加入");
+		// 判断会议密码
+		if (Objects.equals(JoinTypeEnum.NEED_PASSWORD.getCode(), meetingReserve.getJoinType())) {
+			ThrowUtils.throwIf(StrUtil.isBlank(joinPassword) || !StrUtil.equals(joinPassword,
+							meetingReserve.getJoinPassword()),
+					ErrorCode.PARAMS_ERROR, "会议密码错误，无法加入");
+		}
+		// 判断用户是否已在会议中
+		Long currentMeetingId = tokenUserInfo.getMeetingId();
+		ThrowUtils.throwIf(currentMeetingId != null &&
+						!currentMeetingId.equals(meetingId)
+				, ErrorCode.OPERATION_ERROR, "您已在会议中，无法加入其他会议");
+		// 校验用户是否被拉黑
+		checkMeetingJoin(meetingId, tokenUserInfo.getUserId());
+		Meeting meeting = this.getById(meetingId);
+		// 如果会议不存在则创建会议
+		if (meeting == null) {
+			Meeting newMeeting = new Meeting();
+			newMeeting.setId(meetingId);
+			newMeeting.setMeetingName(meetingReserve.getMeetingName());
+			newMeeting.setCreateTime(LocalDateTime.now());
+			newMeeting.setCreateUserId(meetingReserve.getCreateUserId());
+			newMeeting.setJoinType(meetingReserve.getJoinType());
+			if (JoinTypeEnum.NEED_PASSWORD.getCode().equals(meetingReserve.getJoinType())) {
+				newMeeting.setJoinPassword(meetingReserve.getJoinPassword());
+			}
+			int randomInt = RandomUtil.randomInt(100000000, 999999999);
+			newMeeting.setMeetingNo(randomInt);
+			newMeeting.setStartTime(meetingReserve.getStartTime());
+			newMeeting.setStatus(MeetingStatusEnum.RUNNING.getValue());
+			boolean save = this.save(newMeeting);
+			ThrowUtils.throwIf(!save, ErrorCode.OPERATION_ERROR, "创建会议失败");
+		}
+		// 更新tokenUserInfo
+		tokenUserInfo.setMeetingId(meetingId);
+		redisComponent.updateTokenUserInfo(tokenUserInfo);
+		return meetingId;
 	}
 
 	private void checkMeetingJoin(Long meetingId, Long userId) {

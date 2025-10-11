@@ -2,6 +2,7 @@ package org.lzg.meeting.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import org.lzg.meeting.enums.MeetingMemberStatusEnum;
+import org.lzg.meeting.model.dto.JoinReserveMeetingDTO;
 import org.lzg.meeting.model.dto.PreJoinMeetingDTO;
 import org.lzg.meeting.model.dto.QuickMeetingDTO;
 import org.lzg.meeting.model.dto.TokenUserInfo;
@@ -68,4 +69,13 @@ public interface IMeetingService extends IService<Meeting> {
 	 * @return 是否成功
 	 */
 	Boolean forceExitingMeeting(Long userId, TokenUserInfo tokenUserInfo, MeetingMemberStatusEnum meetingMemberStatusEnum);
+
+	/**
+	 * 加入预约会议
+	 *
+	 * @param joinReserveMeetingDTO 预约会议参数
+	 * @param tokenUserInfo         用户信息
+	 * @return 会议id
+	 */
+	Long joinReserveMeeting(JoinReserveMeetingDTO joinReserveMeetingDTO, TokenUserInfo tokenUserInfo);
 }

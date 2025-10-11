@@ -75,7 +75,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 		redisComponent.saveTokenUserInfo(token, tokenUserInfo);
 		UserVO userVO = new UserVO();
 		BeanUtil.copyProperties(user, userVO);
-		userVO.setToken(token);
 		return userVO;
 	}
 

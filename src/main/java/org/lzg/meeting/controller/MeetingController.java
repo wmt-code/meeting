@@ -8,6 +8,7 @@ import org.lzg.meeting.constant.UserConstant;
 import org.lzg.meeting.enums.MeetingMemberStatusEnum;
 import org.lzg.meeting.exception.ErrorCode;
 import org.lzg.meeting.exception.ThrowUtils;
+import org.lzg.meeting.model.dto.JoinReserveMeetingDTO;
 import org.lzg.meeting.model.dto.PreJoinMeetingDTO;
 import org.lzg.meeting.model.dto.QuickMeetingDTO;
 import org.lzg.meeting.model.dto.TokenUserInfo;
@@ -120,6 +121,11 @@ public class MeetingController extends BaseController {
 		return ResultUtils.success(res);
 	}
 
+	/**
+	 * 结束会议
+	 *
+	 * @return 会议信息
+	 */
 	@GetMapping("/finishMeeting")
 	public BaseResponse<Meeting> finishMeeting() {
 		TokenUserInfo tokenUserInfo = getTokenUserInfo();
@@ -156,6 +162,7 @@ public class MeetingController extends BaseController {
 
 	/**
 	 * 加载会议成员列表
+	 *
 	 * @param meetingId 会议ID
 	 * @return 会议成员列表
 	 */
@@ -170,5 +177,19 @@ public class MeetingController extends BaseController {
 				.getUserId().equals(tokenUserInfo.getUserId())).toList();
 		ThrowUtils.throwIf(list.isEmpty(), ErrorCode.NO_AUTH_ERROR);
 		return ResultUtils.success(list);
+	}
+
+	/**
+	 * 受邀用户加入预约会议
+	 *
+	 * @param joinReserveMeetingDTO 加入预约会议参数
+	 * @return 会议ID
+	 */
+	@PostMapping("joinReserveMeeting")
+	public BaseResponse<Long> joinReserveMeeting(@RequestBody JoinReserveMeetingDTO joinReserveMeetingDTO) {
+		ThrowUtils.throwIf(null == joinReserveMeetingDTO, ErrorCode.PARAMS_ERROR);
+		TokenUserInfo tokenUserInfo = getTokenUserInfo();
+		Long meetingId = meetingService.joinReserveMeeting(joinReserveMeetingDTO, tokenUserInfo);
+		return ResultUtils.success(meetingId);
 	}
 }

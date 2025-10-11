@@ -21,11 +21,6 @@ public class UserVO implements Serializable {
 	private String userAccount;
 
 	/**
-	 * 用户token
-	 */
-	private String token;
-
-	/**
 	 * 用户名称
 	 */
 	private String userName;
