@@ -1,11 +1,9 @@
 package org.lzg.meeting.service.impl;
 
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
 import org.lzg.meeting.constant.Constants;
 import org.lzg.meeting.enums.FriendRequestStatusEnum;
 import org.lzg.meeting.enums.FriendshipStatusEnum;
@@ -24,11 +22,11 @@ import org.lzg.meeting.utils.RedisUtil;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-
-import jakarta.annotation.Resource;
-import lombok.extern.slf4j.Slf4j;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * <p>
@@ -98,32 +96,32 @@ public class FriendRequestServiceImpl extends ServiceImpl<FriendRequestMapper, F
 		myRelationQuery.eq(Friendship::getUserId, currentUserId)
 				.eq(Friendship::getFriendId, toUserId);
 		Friendship myRelation = friendshipService.getOne(myRelationQuery);
-		
+
 		LambdaQueryWrapper<Friendship> otherRelationQuery = new LambdaQueryWrapper<>();
 		otherRelationQuery.eq(Friendship::getUserId, toUserId)
 				.eq(Friendship::getFriendId, currentUserId);
 		Friendship otherRelation = friendshipService.getOne(otherRelationQuery);
-		
+
 		Integer myStatus = myRelation != null ? myRelation.getStatus() : null;
 		Integer otherStatus = otherRelation != null ? otherRelation.getStatus() : null;
-		
+
 		log.info("发送申请检查 - 我方状态: {}, 对方状态: {}", myStatus, otherStatus);
-		
+
 		// 场景：我删除了对方（myStatus=DELETED），但对方仍保留我为好友（otherStatus=FRIEND）
 		// 此时直接恢复好友关系，无需对方再次同意
 		if (myRelation != null && otherRelation != null
-				&& FriendshipStatusEnum.DELETED.getStatus().equals(myStatus) 
+				&& FriendshipStatusEnum.DELETED.getStatus().equals(myStatus)
 				&& FriendshipStatusEnum.FRIEND.getStatus().equals(otherStatus)) {
 			log.info("检测到对方仍保留好友关系，直接恢复为好友");
-			
+
 			// 恢复我方关系为FRIEND
 			myRelation.setStatus(FriendshipStatusEnum.FRIEND.getStatus());
 			friendshipService.updateById(myRelation);
-			
+
 			// 清除双方缓存
 			clearFriendListCache(currentUserId);
 			clearFriendListCache(toUserId);
-			
+
 			log.info("好友关系已自动恢复");
 			return;  // 直接返回，不需要创建申请
 		}
@@ -156,7 +154,7 @@ public class FriendRequestServiceImpl extends ServiceImpl<FriendRequestMapper, F
 	@Transactional(rollbackFor = Exception.class)
 	public void agreeApply(Long requestId, Long currentUserId) {
 		log.info("开始处理好友申请同意，requestId={}, currentUserId={}", requestId, currentUserId);
-		
+
 		// 查询申请记录
 		FriendRequest request = this.getById(requestId);
 		if (request == null) {
@@ -192,11 +190,11 @@ public class FriendRequestServiceImpl extends ServiceImpl<FriendRequestMapper, F
 		// 业务逻辑判断
 		Integer myStatus = myRelation != null ? myRelation.getStatus() : null;
 		Integer otherStatus = otherRelation != null ? otherRelation.getStatus() : null;
-		
+
 		log.info("关系状态检查 - 我方状态: {}, 对方状态: {}", myStatus, otherStatus);
 
 		// 情况1：双方都已是好友状态，无需处理（幂等）
-		if (FriendshipStatusEnum.FRIEND.getStatus().equals(myStatus) 
+		if (FriendshipStatusEnum.FRIEND.getStatus().equals(myStatus)
 				&& FriendshipStatusEnum.FRIEND.getStatus().equals(otherStatus)) {
 			log.info("双方已是好友关系，直接返回");
 			request.setStatus(FriendRequestStatusEnum.AGREED.getStatus());
@@ -274,7 +272,7 @@ public class FriendRequestServiceImpl extends ServiceImpl<FriendRequestMapper, F
 		// 清理Redis缓存
 		clearFriendListCache(currentUserId);
 		clearFriendListCache(fromUserId);
-		
+
 		log.info("好友申请处理完成");
 	}
 
@@ -351,12 +349,26 @@ public class FriendRequestServiceImpl extends ServiceImpl<FriendRequestMapper, F
 	}
 
 	/**
+	 * 获取当前用户的待处理申请数量
+	 *
+	 * @param currentUserId 当前用户ID
+	 * @return 待处理申请数量
+	 */
+	@Override
+	public long getPendingApplyCount(Long currentUserId) {
+		LambdaQueryWrapper<FriendRequest> query = new LambdaQueryWrapper<>();
+		query.eq(FriendRequest::getToUserId, currentUserId)
+				.eq(FriendRequest::getStatus, FriendRequestStatusEnum.PENDING.getStatus());
+		return this.count(query);
+	}
+
+	/**
 	 * 清理好友列表缓存
 	 */
 	private void clearFriendListCache(Long userId) {
 		String cacheKey = Constants.FRIEND_LIST_KEY + userId;
 		log.info("准备清除缓存，key={}", cacheKey);
-		
+
 		// 先检查缓存是否存在
 		String oldCache = redisUtil.get(cacheKey);
 		if (oldCache != null) {
@@ -364,10 +376,10 @@ public class FriendRequestServiceImpl extends ServiceImpl<FriendRequestMapper, F
 		} else {
 			log.info("缓存不存在，无需清除");
 		}
-		
+
 		// 删除缓存
 		redisUtil.delete(cacheKey);
-		
+
 		// 验证删除是否成功
 		String checkCache = redisUtil.get(cacheKey);
 		if (checkCache == null) {

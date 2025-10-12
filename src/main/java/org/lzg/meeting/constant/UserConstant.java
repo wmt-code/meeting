@@ -26,7 +26,10 @@ public interface UserConstant {
 	 * 管理员角色
 	 */
 	String ADMIN_ROLE = "admin";
-	long TOKEN_EXPIRE_TIME = 1;
+	/**
+	 * 用户token过期时间，单位：天
+	 */
+	long TOKEN_EXPIRE_TIME = 30;
 
 
 	// endregion

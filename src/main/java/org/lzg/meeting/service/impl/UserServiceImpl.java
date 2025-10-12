@@ -2,7 +2,6 @@ package org.lzg.meeting.service.impl;
 
 import cn.hutool.captcha.CaptchaUtil;
 import cn.hutool.captcha.LineCaptcha;
-import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.SecureUtil;
@@ -21,7 +20,6 @@ import org.lzg.meeting.model.dto.UserLoginDTO;
 import org.lzg.meeting.model.dto.UserRegisterDTO;
 import org.lzg.meeting.model.entity.User;
 import org.lzg.meeting.model.vo.CaptchaVO;
-import org.lzg.meeting.model.vo.UserVO;
 import org.lzg.meeting.service.IUserService;
 import org.springframework.stereotype.Service;
 
@@ -39,7 +37,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 	private RedisComponent redisComponent;
 
 	@Override
-	public UserVO login(UserLoginDTO userLoginDTO) {
+	public String login(UserLoginDTO userLoginDTO) {
 		String userAccount = userLoginDTO.getUserAccount();
 		String userPassword = userLoginDTO.getUserPassword();
 		String captchaKey = userLoginDTO.getCaptchaKey();
@@ -73,9 +71,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 		redisComponent.saveToken(user.getId(), token);
 		// redis存入 token对应的用户信息
 		redisComponent.saveTokenUserInfo(token, tokenUserInfo);
-		UserVO userVO = new UserVO();
-		BeanUtil.copyProperties(user, userVO);
-		return userVO;
+		return token;
 	}
 
 	@Override

@@ -50,10 +50,10 @@ public class UserController extends BaseController {
 	 * @return 用户token
 	 */
 	@PostMapping("/login")
-	public BaseResponse<UserVO> login(@RequestBody UserLoginDTO userLoginDTO) {
+	public BaseResponse<String> login(@RequestBody UserLoginDTO userLoginDTO) {
 		ThrowUtils.throwIf(userLoginDTO == null, ErrorCode.PARAMS_ERROR);
-		UserVO userVO = userService.login(userLoginDTO);
-		return ResultUtils.success(userVO);
+		String token = userService.login(userLoginDTO);
+		return ResultUtils.success(token);
 	}
 
 	@PostMapping("/register")

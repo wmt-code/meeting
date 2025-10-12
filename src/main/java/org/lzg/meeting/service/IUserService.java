@@ -5,7 +5,6 @@ import org.lzg.meeting.model.dto.UserLoginDTO;
 import org.lzg.meeting.model.dto.UserRegisterDTO;
 import org.lzg.meeting.model.entity.User;
 import org.lzg.meeting.model.vo.CaptchaVO;
-import org.lzg.meeting.model.vo.UserVO;
 
 /**
  * <p>
@@ -21,7 +20,7 @@ public interface IUserService extends IService<User> {
      * @param userLoginDTO 登录参数
      * @return 用户token
      */
-	UserVO login(UserLoginDTO userLoginDTO);
+	String login(UserLoginDTO userLoginDTO);
     /**
      * 注册
      * @param userRegisterDTO 注册参数
