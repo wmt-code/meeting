@@ -1,7 +1,10 @@
 package org.lzg.meeting.controller;
 
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
+import org.lzg.meeting.annotation.GlobalInterceptor;
 import org.lzg.meeting.common.BaseResponse;
 import org.lzg.meeting.common.ResultUtils;
 import org.lzg.meeting.constant.UserConstant;
@@ -30,6 +33,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/meeting")
+@Tag(name = "会议管理", description = "会议相关接口")
 public class MeetingController extends BaseController {
 	@Resource
 	private IMeetingService meetingService;
@@ -43,6 +47,8 @@ public class MeetingController extends BaseController {
 	 * @return 会议ID
 	 */
 	@PostMapping("/quickMeeting")
+	@Operation(summary = "快速创建会议")
+	@GlobalInterceptor(checkLogin = true)
 	public BaseResponse<Long> quickMeeting(@RequestBody QuickMeetingDTO quickMeetingDTO) {
 		ThrowUtils.throwIf(null == quickMeetingDTO, ErrorCode.PARAMS_ERROR);
 		TokenUserInfo tokenUserInfo = getTokenUserInfo();
@@ -60,6 +66,8 @@ public class MeetingController extends BaseController {
 	 * @return 会议ID
 	 */
 	@PostMapping("/preJoinMeeting")
+	@Operation(summary = "预加入会议")
+	@GlobalInterceptor(checkLogin = true)
 	public BaseResponse<Long> preJoinMeeting(@RequestBody PreJoinMeetingDTO preJoinMeetingDTO) {
 		ThrowUtils.throwIf(null == preJoinMeetingDTO, ErrorCode.PARAMS_ERROR);
 		TokenUserInfo tokenUserInfo = getTokenUserInfo();
@@ -74,6 +82,8 @@ public class MeetingController extends BaseController {
 	 * @return 是否成功
 	 */
 	@PostMapping("/joinMeeting")
+	@Operation(summary = "加入会议")
+	@GlobalInterceptor(checkLogin = true)
 	public BaseResponse<Boolean> joinMeeting(Boolean videoOPen) {
 		TokenUserInfo tokenUserInfo = getTokenUserInfo();
 		meetingService.joinMeeting(tokenUserInfo.getMeetingId(), tokenUserInfo.getUserId(),
@@ -87,6 +97,8 @@ public class MeetingController extends BaseController {
 	 * @return 是否成功
 	 */
 	@GetMapping("/exitMeeting")
+	@Operation(summary = "退出会议")
+	@GlobalInterceptor(checkLogin = true)
 	public BaseResponse<Boolean> exitMeeting() {
 		TokenUserInfo tokenUserInfo = getTokenUserInfo();
 		Boolean res = meetingService.exitMeeting(tokenUserInfo, MeetingMemberStatusEnum.EXIT_MEETING);
@@ -100,6 +112,8 @@ public class MeetingController extends BaseController {
 	 * @return 是否成功
 	 */
 	@GetMapping("/kickOutMeeting")
+	@Operation(summary = "将某个用户踢出会议")
+	@GlobalInterceptor(checkLogin = true)
 	public BaseResponse<Boolean> kickOutMeeting(@RequestParam Long userId) {
 		ThrowUtils.throwIf(null == userId || userId <= 0, ErrorCode.PARAMS_ERROR);
 		TokenUserInfo tokenUserInfo = getTokenUserInfo();
@@ -114,6 +128,8 @@ public class MeetingController extends BaseController {
 	 * @return 是否成功
 	 */
 	@GetMapping("/blackList")
+	@Operation(summary = "将某个用户拉黑")
+	@GlobalInterceptor(checkLogin = true)
 	public BaseResponse<Boolean> blackList(@RequestParam Long userId) {
 		ThrowUtils.throwIf(null == userId || userId <= 0, ErrorCode.PARAMS_ERROR);
 		TokenUserInfo tokenUserInfo = getTokenUserInfo();
@@ -127,6 +143,8 @@ public class MeetingController extends BaseController {
 	 * @return 会议信息
 	 */
 	@GetMapping("/finishMeeting")
+	@Operation(summary = "结束会议")
+	@GlobalInterceptor(checkLogin = true)
 	public BaseResponse<Meeting> finishMeeting() {
 		TokenUserInfo tokenUserInfo = getTokenUserInfo();
 		Long meetingId = tokenUserInfo.getMeetingId();
@@ -147,6 +165,8 @@ public class MeetingController extends BaseController {
 	 * @return 是否成功
 	 */
 	@GetMapping("/deleteMeetingRecord")
+	@Operation(summary = "删除会议记录")
+	@GlobalInterceptor(checkLogin = true)
 	public BaseResponse<Boolean> deleteMeetingRecord(@RequestParam Long meetingId) {
 		ThrowUtils.throwIf(null == meetingId || meetingId <= 0, ErrorCode.PARAMS_ERROR);
 		TokenUserInfo tokenUserInfo = getTokenUserInfo();
@@ -167,6 +187,8 @@ public class MeetingController extends BaseController {
 	 * @return 会议成员列表
 	 */
 	@GetMapping("/loadMeetingMembers")
+	@Operation(summary = "加载会议成员列表")
+	@GlobalInterceptor(checkLogin = true)
 	public BaseResponse<List<MeetingMember>> loadMeetingMembers(@RequestParam Long meetingId) {
 		ThrowUtils.throwIf(null == meetingId || meetingId <= 0, ErrorCode.PARAMS_ERROR);
 		TokenUserInfo tokenUserInfo = getTokenUserInfo();
@@ -186,6 +208,8 @@ public class MeetingController extends BaseController {
 	 * @return 会议ID
 	 */
 	@PostMapping("joinReserveMeeting")
+	@Operation(summary = "受邀用户加入预约会议")
+	@GlobalInterceptor(checkLogin = true)
 	public BaseResponse<Long> joinReserveMeeting(@RequestBody JoinReserveMeetingDTO joinReserveMeetingDTO) {
 		ThrowUtils.throwIf(null == joinReserveMeetingDTO, ErrorCode.PARAMS_ERROR);
 		TokenUserInfo tokenUserInfo = getTokenUserInfo();

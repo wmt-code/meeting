@@ -67,6 +67,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 		tokenUserInfo.setMeetingNo(user.getMeetingNo());
 		tokenUserInfo.setUserRole(user.getUserRole());
 		tokenUserInfo.setUserId(user.getId());
+		tokenUserInfo.setUserName(user.getUserName());
 		// redis存入 用户ID对应的token
 		redisComponent.saveToken(user.getId(), token);
 		// redis存入 token对应的用户信息

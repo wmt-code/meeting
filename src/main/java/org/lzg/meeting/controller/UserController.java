@@ -2,6 +2,8 @@ package org.lzg.meeting.controller;
 
 
 import cn.hutool.core.bean.BeanUtil;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.lzg.meeting.common.BaseResponse;
@@ -28,6 +30,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/user")
 @Slf4j
+@Tag(name = "用户管理", description = "用户相关接口")
 public class UserController extends BaseController {
 	@Resource
 	private IUserService userService;
@@ -38,6 +41,7 @@ public class UserController extends BaseController {
 	 * @return 返回验证码的key和验证码图片base64
 	 */
 	@GetMapping("/captcha")
+	@Operation(summary = "获取验证码")
 	public BaseResponse<CaptchaVO> getCaptcha() {
 		CaptchaVO captchaVO = userService.getCaptcha();
 		return ResultUtils.success(captchaVO);
@@ -50,6 +54,7 @@ public class UserController extends BaseController {
 	 * @return 用户token
 	 */
 	@PostMapping("/login")
+	@Operation(summary = "用户登录")
 	public BaseResponse<String> login(@RequestBody UserLoginDTO userLoginDTO) {
 		ThrowUtils.throwIf(userLoginDTO == null, ErrorCode.PARAMS_ERROR);
 		String token = userService.login(userLoginDTO);
@@ -57,6 +62,7 @@ public class UserController extends BaseController {
 	}
 
 	@PostMapping("/register")
+	@Operation(summary = "用户注册")
 	public BaseResponse<Boolean> register(@RequestBody UserRegisterDTO userRegisterDTO) {
 		ThrowUtils.throwIf(userRegisterDTO == null, ErrorCode.PARAMS_ERROR);
 		Boolean result = userService.register(userRegisterDTO);
@@ -69,6 +75,7 @@ public class UserController extends BaseController {
 	 * @return 当前登录用户的信息
 	 */
 	@GetMapping("/current")
+	@Operation(summary = "获取当前登录用户的信息")
 	public BaseResponse<UserVO> getCurrentUser() {
 		TokenUserInfo tokenUserInfo = getTokenUserInfo();
 		User byId = userService.getById(tokenUserInfo.getUserId());

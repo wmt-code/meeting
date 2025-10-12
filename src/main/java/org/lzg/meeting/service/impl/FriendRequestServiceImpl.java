@@ -90,7 +90,6 @@ public class FriendRequestServiceImpl extends ServiceImpl<FriendRequestMapper, F
 			throw new BusinessException(ErrorCode.FORBIDDEN_ERROR, "无法发送好友申请");
 		}
 
-		// ============ 新增业务逻辑 ============
 		// 检查双方关系状态：如果我删除了对方，但对方仍保留我为好友，则直接恢复好友关系
 		LambdaQueryWrapper<Friendship> myRelationQuery = new LambdaQueryWrapper<>();
 		myRelationQuery.eq(Friendship::getUserId, currentUserId)
@@ -125,7 +124,6 @@ public class FriendRequestServiceImpl extends ServiceImpl<FriendRequestMapper, F
 			log.info("好友关系已自动恢复");
 			return;  // 直接返回，不需要创建申请
 		}
-		// ============ 新增业务逻辑结束 ============
 
 		// 检查是否已存在待处理的申请
 		LambdaQueryWrapper<FriendRequest> requestQuery = new LambdaQueryWrapper<>();

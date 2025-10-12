@@ -4,7 +4,10 @@ package org.lzg.meeting.controller;
 import cn.hutool.core.bean.BeanUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
+import org.lzg.meeting.annotation.GlobalInterceptor;
 import org.lzg.meeting.common.BaseResponse;
 import org.lzg.meeting.common.PageRequest;
 import org.lzg.meeting.common.ResultUtils;
@@ -33,6 +36,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/meeting-reserve")
+@Tag(name = "会议预约管理", description = "会议预约相关接口")
 public class MeetingReserveController extends BaseController {
 	@Resource
 	private IMeetingReserveService meetingReserveService;
@@ -46,6 +50,8 @@ public class MeetingReserveController extends BaseController {
 	 * @return BaseResponse<Page<MeetingReserve>>
 	 */
 	@PostMapping("/loadMeetingReserveList")
+	@Operation(summary = "分页获取当前用户的会议预约列表")
+	@GlobalInterceptor(checkLogin = true)
 	public BaseResponse<Page<MeetingReserveVO>> loadMeetingReserveList(@RequestBody PageRequest pageRequest) {
 		int current = pageRequest.getCurrent();
 		int pageSize = pageRequest.getPageSize();
@@ -89,6 +95,8 @@ public class MeetingReserveController extends BaseController {
 	 * @return BaseResponse<Long> 会议ID
 	 */
 	@PostMapping("/reserveMeeting")
+	@Operation(summary = "预约会议")
+	@GlobalInterceptor(checkLogin = true)
 	public BaseResponse<Long> reserveMeeting(@RequestBody MeetingReserveDTO meetingReserveDTO) {
 		ThrowUtils.throwIf(meetingReserveDTO == null, ErrorCode.PARAMS_ERROR);
 		TokenUserInfo tokenUserInfo = getTokenUserInfo();
@@ -103,6 +111,8 @@ public class MeetingReserveController extends BaseController {
 	 * @return BaseResponse<Boolean> 是否删除成功
 	 */
 	@GetMapping("/deleteMeetingReserve")
+	@Operation(summary = "创建人删除会议预约")
+	@GlobalInterceptor(checkLogin = true)
 	public BaseResponse<Boolean> deleteMeetingReserve(@RequestParam Long meetingId) {
 		ThrowUtils.throwIf(meetingId == null || meetingId <= 0, ErrorCode.PARAMS_ERROR);
 		TokenUserInfo tokenUserInfo = getTokenUserInfo();
@@ -121,6 +131,8 @@ public class MeetingReserveController extends BaseController {
 	 * @return BaseResponse<Boolean> 是否删除成功
 	 */
 	@GetMapping("/deleteReserveByUser")
+	@Operation(summary = "受邀用户删除会议预约")
+	@GlobalInterceptor(checkLogin = true)
 	public BaseResponse<Boolean> deleteReserveByUser(@RequestParam Long meetingId) {
 		ThrowUtils.throwIf(meetingId == null || meetingId <= 0, ErrorCode.PARAMS_ERROR);
 		TokenUserInfo tokenUserInfo = getTokenUserInfo();
@@ -142,6 +154,8 @@ public class MeetingReserveController extends BaseController {
 	 * @return BaseResponse<MeetingReserve> 会议预约详情
 	 */
 	@GetMapping("/getMeetingReserveById")
+	@Operation(summary = "根据ID获取会议预约详情")
+	@GlobalInterceptor(checkLogin = true)
 	public BaseResponse<MeetingReserveVO> getMeetingReserveById(@RequestParam Long meetingId) {
 		ThrowUtils.throwIf(meetingId == null || meetingId <= 0, ErrorCode.PARAMS_ERROR);
 		MeetingReserve meetingReserve = meetingReserveService.getById(meetingId);
