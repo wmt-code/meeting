@@ -78,4 +78,13 @@ public interface IMeetingService extends IService<Meeting> {
 	 * @return 会议id
 	 */
 	Long joinReserveMeeting(JoinReserveMeetingDTO joinReserveMeetingDTO, TokenUserInfo tokenUserInfo);
+
+	/**
+	 * 用户开启或关闭视频并通知其他成员
+	 *
+	 * @param meetingId 会议ID
+	 * @param userId    用户ID
+	 * @param videoOpen 是否开启视频
+	 */
+	void videoOpen(Long meetingId, Long userId, Boolean videoOpen);
 }

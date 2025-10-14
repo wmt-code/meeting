@@ -7,14 +7,12 @@ import jakarta.annotation.Resource;
 import org.lzg.meeting.annotation.GlobalInterceptor;
 import org.lzg.meeting.common.BaseResponse;
 import org.lzg.meeting.common.ResultUtils;
+import org.lzg.meeting.component.RedisComponent;
 import org.lzg.meeting.constant.UserConstant;
 import org.lzg.meeting.enums.MeetingMemberStatusEnum;
 import org.lzg.meeting.exception.ErrorCode;
 import org.lzg.meeting.exception.ThrowUtils;
-import org.lzg.meeting.model.dto.JoinReserveMeetingDTO;
-import org.lzg.meeting.model.dto.PreJoinMeetingDTO;
-import org.lzg.meeting.model.dto.QuickMeetingDTO;
-import org.lzg.meeting.model.dto.TokenUserInfo;
+import org.lzg.meeting.model.dto.*;
 import org.lzg.meeting.model.entity.Meeting;
 import org.lzg.meeting.model.entity.MeetingMember;
 import org.lzg.meeting.service.IMeetingMemberService;
@@ -39,6 +37,8 @@ public class MeetingController extends BaseController {
 	private IMeetingService meetingService;
 	@Resource
 	private IMeetingMemberService meetingMemberService;
+	@Resource
+	private RedisComponent redisComponent;
 
 	/**
 	 * 快速创建会议
@@ -215,5 +215,20 @@ public class MeetingController extends BaseController {
 		TokenUserInfo tokenUserInfo = getTokenUserInfo();
 		Long meetingId = meetingService.joinReserveMeeting(joinReserveMeetingDTO, tokenUserInfo);
 		return ResultUtils.success(meetingId);
+	}
+
+	/**
+	 * 用户开启/关闭视频
+	 *
+	 * @param videoOpen 是否开启视频
+	 * @return 是否成功
+	 */
+	@GetMapping("/videoOpen")
+	@Operation(summary = "用户开启/关闭视频")
+	@GlobalInterceptor(checkLogin = true)
+	public BaseResponse<Boolean> videoOpen(@RequestParam Boolean videoOpen) {
+		ThrowUtils.throwIf(null == videoOpen, ErrorCode.PARAMS_ERROR);
+		meetingService.videoOpen(getTokenUserInfo().getMeetingId(), getTokenUserInfo().getUserId(), videoOpen);
+		return ResultUtils.success(true);
 	}
 }

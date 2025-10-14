@@ -348,6 +348,23 @@ public class MeetingServiceImpl extends ServiceImpl<MeetingMapper, Meeting> impl
 		return meetingId;
 	}
 
+	@Override
+	public void videoOpen(Long meetingId, Long userId, Boolean videoOpen) {
+		MeetingMemberDTO meetingMemberDTO = redisComponent.getMeetingMemberDTO(meetingId, userId);
+		ThrowUtils.throwIf(null == meetingMemberDTO, ErrorCode.NOT_FOUND_ERROR, "会议成员不存在");
+		meetingMemberDTO.setVideoOpen(videoOpen);
+		redisComponent.add2Meeting(meetingId, meetingMemberDTO);
+		// 发送ws消息
+		SendMsgDTO sendMsgDTO = new SendMsgDTO();
+		sendMsgDTO.setMsgSendType(MsgSendTypeEnum.GROUP.getValue());
+		sendMsgDTO.setMeetingId(meetingId);
+		sendMsgDTO.setMsgType(MessageTypeEnum.MEETING_USER_VIDEO_CHANGE.getType());
+		sendMsgDTO.setSenderId(userId);
+		sendMsgDTO.setMsgContent(videoOpen);
+		sendMsgDTO.setSendTime(LocalDateTime.now());
+		msgHandler.sendMessage(sendMsgDTO);
+	}
+
 	private void checkMeetingJoin(Long meetingId, Long userId) {
 		MeetingMemberDTO meetingMemberDTO = redisComponent.getMeetingMemberDTO(meetingId, userId);
 		if (meetingMemberDTO != null && Objects.equals(MeetingMemberStatusEnum.BLACKLIST.getStatus(),

@@ -32,7 +32,7 @@ public class MeetingMember implements Serializable {
      * id
      */
     @TableId(value = "id", type = IdType.ASSIGN_ID)
-    private Integer id;
+	private Long id;
 
     /**
      * 会议ID
