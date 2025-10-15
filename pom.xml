@@ -30,6 +30,12 @@
         <java.version>21</java.version>
     </properties>
     <dependencies>
+        <!--腾讯云cos-->
+        <dependency>
+            <groupId>com.qcloud</groupId>
+            <artifactId>cos_api</artifactId>
+            <version>5.6.255</version>
+        </dependency>
         <!--rabbitmq-->
         <dependency>
             <groupId>org.springframework.boot</groupId>

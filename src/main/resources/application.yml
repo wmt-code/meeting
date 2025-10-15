@@ -53,3 +53,10 @@ ws:
 message:
     handle:
         channel: redis
+cos:
+    client:
+        host:
+        secretId:
+        secretKey:
+        region:
+        bucket:
