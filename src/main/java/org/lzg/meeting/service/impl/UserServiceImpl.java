@@ -1,5 +1,7 @@
 package org.lzg.meeting.service.impl;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.lzg.meeting.component.CosComponent;
 import org.lzg.meeting.component.RedisComponent;
 import org.lzg.meeting.constant.UserConstant;
@@ -8,14 +10,13 @@ import org.lzg.meeting.exception.BusinessException;
 import org.lzg.meeting.exception.ErrorCode;
 import org.lzg.meeting.exception.ThrowUtils;
 import org.lzg.meeting.mapper.UserMapper;
-import org.lzg.meeting.model.dto.TokenUserInfo;
-import org.lzg.meeting.model.dto.UserLoginDTO;
-import org.lzg.meeting.model.dto.UserPasswordDTO;
-import org.lzg.meeting.model.dto.UserRegisterDTO;
-import org.lzg.meeting.model.dto.UserUpdateDTO;
+import org.lzg.meeting.model.dto.*;
 import org.lzg.meeting.model.entity.User;
 import org.lzg.meeting.model.vo.CaptchaVO;
+import org.lzg.meeting.model.vo.UserPageVO;
+import org.lzg.meeting.model.vo.UserVO;
 import org.lzg.meeting.service.IUserService;
+import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -29,6 +30,9 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.SecureUtil;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * <p>
@@ -310,5 +314,306 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 		}
 
 		return avatarUrl;
+	}
+
+	// ==================== 管理员功能实现 ====================
+
+	@Override
+	public UserPageVO listUsersByPage(UserQueryDTO queryDTO) {
+		if (queryDTO == null) {
+			throw new BusinessException(ErrorCode.PARAMS_ERROR);
+		}
+
+		// 构建分页对象
+		long current = queryDTO.getCurrent() != null ? queryDTO.getCurrent().longValue() : 1L;
+		long pageSize = queryDTO.getPageSize() != null ? queryDTO.getPageSize().longValue() : 10L;
+		Page<User> page = new Page<>(current, pageSize);
+
+		// 构建查询条件
+		QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+
+		// 用户名模糊查询
+		if (StrUtil.isNotBlank(queryDTO.getUserName())) {
+			queryWrapper.like("userName", queryDTO.getUserName());
+		}
+
+		// 账号模糊查询
+		if (StrUtil.isNotBlank(queryDTO.getUserAccount())) {
+			queryWrapper.like("userAccount", queryDTO.getUserAccount());
+		}
+
+		// 邮箱模糊查询
+		if (StrUtil.isNotBlank(queryDTO.getEmail())) {
+			queryWrapper.like("email", queryDTO.getEmail());
+		}
+
+		// 状态精确查询
+		if (queryDTO.getStatus() != null) {
+			queryWrapper.eq("status", queryDTO.getStatus());
+		}
+
+		// 角色精确查询
+		if (StrUtil.isNotBlank(queryDTO.getUserRole())) {
+			queryWrapper.eq("userRole", queryDTO.getUserRole());
+		}
+
+		// 排序
+		String sortField = queryDTO.getSortField();
+		String sortOrder = queryDTO.getSortOrder();
+		if (StrUtil.isNotBlank(sortField)) {
+			boolean isAsc = "asc".equalsIgnoreCase(sortOrder);
+			queryWrapper.orderBy(true, isAsc, sortField);
+		} else {
+			// 默认按创建时间倒序
+			queryWrapper.orderByDesc("createTime");
+		}
+
+		// 执行查询
+		IPage<User> userPage = this.page(page, queryWrapper);
+
+		// 转换为VO
+		List<UserVO> userVOList = userPage.getRecords().stream()
+				.map(this::convertToUserVO)
+				.collect(Collectors.toList());
+
+		// 构建返回结果
+		UserPageVO pageVO = new UserPageVO();
+		pageVO.setRecords(userVOList);
+		pageVO.setTotal(userPage.getTotal());
+		pageVO.setCurrent(userPage.getCurrent());
+		pageVO.setSize(userPage.getSize());
+		pageVO.setPages(userPage.getPages());
+
+		return pageVO;
+	}
+
+	@Override
+	public UserVO getUserVOById(Long id) {
+		if (id == null || id <= 0) {
+			throw new BusinessException(ErrorCode.PARAMS_ERROR);
+		}
+
+		User user = this.getById(id);
+		if (user == null) {
+			throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "用户不存在");
+		}
+
+		return convertToUserVO(user);
+	}
+
+	@Override
+	public Boolean updateUserByAdmin(AdminUpdateUserDTO updateDTO) {
+		if (updateDTO == null || updateDTO.getId() == null || updateDTO.getId() <= 0) {
+			throw new BusinessException(ErrorCode.PARAMS_ERROR);
+		}
+
+		// 验证用户是否存在
+		User existUser = this.getById(updateDTO.getId());
+		if (existUser == null) {
+			throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "用户不存在");
+		}
+
+		// 构建更新对象
+		User updateUser = new User();
+		updateUser.setId(updateDTO.getId());
+
+		// 更新用户名
+		if (StrUtil.isNotBlank(updateDTO.getUserName())) {
+			if (updateDTO.getUserName().length() > 20) {
+				throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户名长度不能超过20个字符");
+			}
+			updateUser.setUserName(updateDTO.getUserName());
+		}
+
+		// 更新邮箱
+		if (StrUtil.isNotBlank(updateDTO.getEmail())) {
+			// 邮箱格式验证
+			if (!updateDTO.getEmail().matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$")) {
+				throw new BusinessException(ErrorCode.PARAMS_ERROR, "邮箱格式不正确");
+			}
+			updateUser.setEmail(updateDTO.getEmail());
+		}
+
+		// 更新状态
+		if (updateDTO.getStatus() != null) {
+			if (updateDTO.getStatus() != 0 && updateDTO.getStatus() != 1) {
+				throw new BusinessException(ErrorCode.PARAMS_ERROR, "状态参数无效");
+			}
+			updateUser.setStatus(updateDTO.getStatus());
+		}
+
+		// 更新角色
+		if (StrUtil.isNotBlank(updateDTO.getUserRole())) {
+			if (!UserConstant.ADMIN_ROLE.equals(updateDTO.getUserRole()) 
+					&& !UserConstant.DEFAULT_ROLE.equals(updateDTO.getUserRole())) {
+				throw new BusinessException(ErrorCode.PARAMS_ERROR, "角色参数无效");
+			}
+			updateUser.setUserRole(updateDTO.getUserRole());
+		}
+
+		// 更新头像
+		if (StrUtil.isNotBlank(updateDTO.getAvatar())) {
+			updateUser.setAvatar(updateDTO.getAvatar());
+		}
+
+		// 执行更新
+		boolean updated = this.updateById(updateUser);
+		if (!updated) {
+			throw new BusinessException(ErrorCode.OPERATION_ERROR, "更新用户信息失败");
+		}
+
+		return true;
+	}
+
+	@Override
+	public Boolean deleteUserById(Long id) {
+		if (id == null || id <= 0) {
+			throw new BusinessException(ErrorCode.PARAMS_ERROR);
+		}
+
+		User user = this.getById(id);
+		if (user == null) {
+			throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "用户不存在");
+		}
+
+		// 不能删除管理员账号
+		if (UserConstant.ADMIN_ROLE.equals(user.getUserRole())) {
+			throw new BusinessException(ErrorCode.PARAMS_ERROR, "不能删除管理员账号");
+		}
+
+		// 执行删除（逻辑删除）
+		boolean deleted = this.removeById(id);
+		if (!deleted) {
+			throw new BusinessException(ErrorCode.OPERATION_ERROR, "删除用户失败");
+		}
+
+		// 删除Redis中的token信息
+		try {
+			redisComponent.cleanToken(id);
+		} catch (Exception e) {
+			log.warn("删除用户token失败: userId={}", id, e);
+		}
+
+		return true;
+	}
+
+	@Override
+	public Boolean batchDeleteUsers(List<Long> ids) {
+		if (ids == null || ids.isEmpty()) {
+			throw new BusinessException(ErrorCode.PARAMS_ERROR);
+		}
+
+		// 查询用户列表，验证不能删除管理员
+		List<User> users = this.listByIds(ids);
+		for (User user : users) {
+			if (UserConstant.ADMIN_ROLE.equals(user.getUserRole())) {
+				throw new BusinessException(ErrorCode.PARAMS_ERROR, "不能删除管理员账号: " + user.getUserName());
+			}
+		}
+
+		// 批量删除
+		boolean deleted = this.removeByIds(ids);
+		if (!deleted) {
+			throw new BusinessException(ErrorCode.OPERATION_ERROR, "批量删除用户失败");
+		}
+
+		// 删除Redis中的token信息
+		for (Long id : ids) {
+			try {
+				redisComponent.cleanToken(id);
+			} catch (Exception e) {
+				log.warn("删除用户token失败: userId={}", id, e);
+			}
+		}
+
+		return true;
+	}
+
+	@Override
+	public Boolean updateUserStatus(Long id, Integer status) {
+		if (id == null || id <= 0 || status == null) {
+			throw new BusinessException(ErrorCode.PARAMS_ERROR);
+		}
+
+		if (status != 0 && status != 1) {
+			throw new BusinessException(ErrorCode.PARAMS_ERROR, "状态参数无效");
+		}
+
+		User user = this.getById(id);
+		if (user == null) {
+			throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "用户不存在");
+		}
+
+		// 不能禁用管理员账号
+		if (status == 0 && UserConstant.ADMIN_ROLE.equals(user.getUserRole())) {
+			throw new BusinessException(ErrorCode.PARAMS_ERROR, "不能禁用管理员账号");
+		}
+
+		User updateUser = new User();
+		updateUser.setId(id);
+		updateUser.setStatus(status);
+
+		boolean updated = this.updateById(updateUser);
+		if (!updated) {
+			throw new BusinessException(ErrorCode.OPERATION_ERROR, "更新用户状态失败");
+		}
+
+		// 如果是禁用操作，删除Redis中的token
+		if (status == 0) {
+			try {
+				redisComponent.cleanToken(id);
+			} catch (Exception e) {
+				log.warn("删除用户token失败: userId={}", id, e);
+			}
+		}
+
+		return true;
+	}
+
+	@Override
+	public String resetUserPassword(Long id) {
+		if (id == null || id <= 0) {
+			throw new BusinessException(ErrorCode.PARAMS_ERROR);
+		}
+
+		User user = this.getById(id);
+		if (user == null) {
+			throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "用户不存在");
+		}
+
+		// 生成8位随机密码
+		String newPassword = RandomUtil.randomString(8);
+
+		// 更新密码
+		User updateUser = new User();
+		updateUser.setId(id);
+		updateUser.setUserPassword(encPassword(newPassword));
+
+		boolean updated = this.updateById(updateUser);
+		if (!updated) {
+			throw new BusinessException(ErrorCode.OPERATION_ERROR, "重置密码失败");
+		}
+
+		// 删除Redis中的token，强制用户重新登录
+		try {
+			redisComponent.cleanToken(id);
+		} catch (Exception e) {
+			log.warn("删除用户token失败: userId={}", id, e);
+		}
+
+		return newPassword;
+	}
+
+	/**
+	 * 将User实体转换为UserVO
+	 */
+	private UserVO convertToUserVO(User user) {
+		if (user == null) {
+			return null;
+		}
+
+		UserVO userVO = new UserVO();
+		BeanUtils.copyProperties(user, userVO);
+		return userVO;
 	}
 }

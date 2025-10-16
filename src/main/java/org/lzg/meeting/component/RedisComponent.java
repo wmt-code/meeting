@@ -153,4 +153,18 @@ public class RedisComponent {
 				meetingMemberList.stream().map(m -> String.valueOf(m.getUserId())).distinct().toList();
 		redisUtil.hDelete(Constants.MEETING_ROOM_KEY + meetingId, userIdList.toArray(new String[userIdList.size()]));
 	}
+
+	/**
+	 * 清除用户的token信息（管理员功能）
+	 */
+	public void cleanToken(Long userId) {
+		// 获取用户的token
+		String token = getToken(userId);
+		if (token != null) {
+			// 删除 userId -> token 映射
+			redisUtil.delete(UserConstant.TOKEN + userId);
+			// 删除 token -> userInfo 映射
+			redisUtil.delete(UserConstant.TOKEN + token);
+		}
+	}
 }
