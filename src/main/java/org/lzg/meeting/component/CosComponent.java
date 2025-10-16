@@ -36,10 +36,47 @@ public class CosComponent {
 	private CosConfig cosConfig;
 
 	/**
+	 * 直接上传字节数组为文件
+	 *
+	 * @param bytes       文件内容
+	 * @param contentType 内容类型，例如 image/jpeg
+	 * @param folder      目录，如 chat/thumbnail
+	 * @param extension   扩展名（.jpg/.png 等）
+	 * @return 访问URL
+	 */
+	public String uploadBytes(byte[] bytes, String contentType, String folder, String extension) {
+		if (bytes == null || bytes.length == 0) {
+			throw new BusinessException(ErrorCode.PARAMS_ERROR, "文件内容不能为空");
+		}
+		try {
+			String date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+			String ext = (extension != null && extension.startsWith(".")) ? extension : ".bin";
+			String fileName = IdUtil.simpleUUID() + ext;
+			String key = folder + "/" + date + "/" + fileName;
+
+			ObjectMetadata metadata = new ObjectMetadata();
+			metadata.setContentLength(bytes.length);
+			if (contentType != null) {
+				metadata.setContentType(contentType);
+			}
+
+			InputStream inputStream = new java.io.ByteArrayInputStream(bytes);
+			PutObjectRequest putObjectRequest = new PutObjectRequest(
+					cosConfig.getBucket(), key, inputStream, metadata);
+			cosClient.putObject(putObjectRequest);
+			inputStream.close();
+			return cosConfig.getHost() + "/" + key;
+		} catch (IOException e) {
+			log.error("字节上传失败", e);
+			throw new BusinessException(ErrorCode.SYSTEM_ERROR, "文件上传失败");
+		}
+	}
+
+	/**
 	 * 上传文件到COS
 	 *
-	 * @param file     文件
-	 * @param folder   文件夹名称（如：avatar、document等）
+	 * @param file   文件
+	 * @param folder 文件夹名称（如：avatar、document等）
 	 * @return 文件访问URL
 	 */
 	public String uploadFile(MultipartFile file, String folder) {

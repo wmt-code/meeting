@@ -1,62 +1,101 @@
+# FFmpeg 配置
+ffmpeg:
+  path: ffmpeg # Windows 可配置为 ffmpeg.exe 的绝对路径，如 C:\\ffmpeg\\bin\\ffmpeg.exe
+  thumbnail:
+    image:
+      width: 200
+    video:
+      width: 480
 server:
-    servlet:
-        context-path: /api
-    port: 8081
+  servlet:
+    context-path: /api
+  port: 8081
 spring:
-    rabbitmq:
-        addresses: <ip>
-        port: 5672
-        username: <USERNAME>
-        password: <PASSWORD>
-        virtual-host: /
-        publisher-confirm-type: correlated
-        publisher-returns: true
-        listener:
-            simple:
-                acknowledge-mode: manual
-    application:
-        name: meeting
+  rabbitmq:
+    addresses: <ip>
+    port: 5672
+    username: <USERNAME>
+    password: <PASSWORD>
+    virtual-host: /
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    listener:
+      simple:
+        acknowledge-mode: manual
+  application:
+    name: meeting
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://<ip>:3306/meeting
+    username: root
+    password: <PASSWORD>
+  data:
+    redis:
+      database: 0
+      host: <ip>
+      port: 6379
+      password: <PASSWORD>
+  profiles:
+    active: prod
+
+  # ShardingSphere 配置
+  shardingsphere:
     datasource:
+      names: ds
+      ds:
+        type: com.zaxxer.hikari.HikariDataSource
         driver-class-name: com.mysql.cj.jdbc.Driver
-        url: jdbc:mysql://<ip>:3306/meeting
+        jdbc-url: jdbc:mysql://<ip>:3306/meeting?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false
         username: root
         password: <PASSWORD>
-    data:
-        redis:
-            database: 0
-            host: <ip>
-            port: 6379
-            password: <PASSWORD>
-    profiles:
-        active: prod
+    rules:
+      sharding:
+        tables:
+          chat_message:
+            actual-data-nodes: ds.chat_message_$->{1..4}
+            table-strategy:
+              standard:
+                sharding-column: meetingId
+                sharding-algorithm-name: chat_message_inline
+        sharding-algorithms:
+          chat_message_inline:
+            type: INLINE
+            props:
+              algorithm-expression: chat_message_$->{meetingId % 4 + 1}
+    props:
+      sql-show: true
 
 # springdoc-openapi配置
 springdoc:
-    swagger-ui:
-        path: /swagger-ui.html
-        tags-sorter: alpha
-        operations-sorter: alpha
-    api-docs:
-        path: /v3/api-docs
-    group-configs:
-        -   group: 'default'
-            paths-to-match: '/**'
-            packages-to-scan: org.lzg.meeting.controller
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+  group-configs:
+    - group: "default"
+      paths-to-match: "/**"
+      packages-to-scan: org.lzg.meeting.controller
 # knife4j增强配置
 knife4j:
-    enable: true
-    setting:
-        language: zh_cn
+  enable: true
+  setting:
+    language: zh_cn
 ws:
-    port: 8082
+  port: 8082
 #消息处理 可选redis或rabbitmq
 message:
-    handle:
-        channel: redis
+  handle:
+    channel: redis
 cos:
-    client:
-        host:
-        secretId:
-        secretKey:
-        region:
-        bucket:
+  client:
+    host:
+    secretId:
+    secretKey:
+    region:
+    bucket:
+# ShardingSphere 分表配置
+sharding:
+  table:
+    count: 4 # 聊天消息表分表数量，默认4个

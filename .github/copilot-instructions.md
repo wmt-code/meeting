@@ -290,6 +290,67 @@ ws:
 
 ## 文档参考
 
-- **完整文档**: `docs/file-and-user-module-guide.md`
+- **文件和用户模块文档**: `docs/file-and-user-module-guide.md`
+- **聊天消息功能文档**: `docs/chat-message-feature-guide.md`
 - **API 文档**: http://localhost:8081/api/doc.html (Knife4j)
 - **Swagger UI**: http://localhost:8081/api/swagger-ui.html
+
+## 聊天消息功能
+
+### 核心特性
+
+- **数据库分片**: 使用 Apache ShardingSphere 根据会议 ID 分表（默认 4 个分表，可配置）
+- **多种消息类型**: 文本、图片（自动缩略图）、视频、文件、语音
+- **消息范围**: 私聊（仅双方可见）、群聊（会议所有成员可见）
+- **游标分页**: 基于消息 ID 的高性能分页查询
+- **实时推送**: 通过 WebSocket 实时推送消息
+
+### 分表策略
+
+```
+逻辑表: chat_message
+物理表: chat_message_0, chat_message_1, chat_message_2, chat_message_3
+分片键: meetingId
+分片算法: meetingId % ${sharding.table.count}
+```
+
+### 关键接口
+
+- `POST /api/chat/send/text`: 发送文本消息
+- `POST /api/chat/send/image`: 发送图片消息（支持缩略图）
+- `POST /api/chat/send/video`: 发送视频消息
+- `POST /api/chat/send/file`: 发送文件消息
+- `POST /api/chat/history`: 查询历史消息（游标分页）
+- `DELETE /api/chat/recall/{messageId}`: 撤回消息
+
+### 配置说明
+
+在 `application.yml` 中配置分表数量：
+
+```yaml
+sharding:
+  table:
+    count: 4 # 聊天消息表分表数量，可根据业务量调整
+```
+
+### 使用示例
+
+```java
+// 发送群聊消息
+ChatMessageSendDTO sendDTO = new ChatMessageSendDTO();
+sendDTO.setMeetingId(1001L);
+sendDTO.setMessageScope(2); // 群聊
+sendDTO.setMessageType(1); // 文本
+sendDTO.setContent("大家好！");
+chatMessageService.sendMessage(sendDTO, userId);
+
+// 查询历史消息（游标分页）
+ChatMessageQueryDTO queryDTO = new ChatMessageQueryDTO();
+queryDTO.setMeetingId(1001L);
+queryDTO.setMessageScope(2);
+queryDTO.setCursor(null); // 首次查询
+queryDTO.setPageSize(20);
+ChatMessagePageVO result = chatMessageService.queryHistoryMessages(queryDTO, userId);
+```
+
+详细文档请参考 `docs/chat-message-feature-guide.md`
