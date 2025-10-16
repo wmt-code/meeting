@@ -1,0 +1,12 @@
+node_modules
+dist
+dist-electron
+*.local
+.DS_Store
+.vscode
+.idea
+*.log
+*.tgz
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
